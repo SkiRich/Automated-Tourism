@@ -11,9 +11,9 @@ local lf_print = false -- Setup debug printing in local file
 
 local ModDir = CurrentModPath
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 400-499:  Next is 400
-local iconATButtonNA    = ModDir.."UI/Icons/ButtonIconBlank.png"
-local iconATButtonOn    = ModDir.."UI/Icons/ButtonIconBlank.png"
-local iconATButtonOff   = ModDir.."UI/Icons/ButtonIconBlank.png"
+local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
+local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
+local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
 
 ----------------------- OnMsg -------------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ function OnMsg.ClassesBuilt()
     XT.AT = true
     local foundsection, idx
 
-    --alter the ipBuilding template for AT
+    -- alter the ipBuilding template for AT
     -- alter the AT button panel
     XT[#XT + 1] = PlaceObj("XTemplateTemplate", {
     	"Version", ATControlVer,
@@ -56,17 +56,52 @@ function OnMsg.ClassesBuilt()
       "__context_of_kind", "SupplyRocket",
       "__condition", function (parent, context) return (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
-      "Icon", iconATButtonNA,
-      --"RolloverTitle", T{StringIdBase + 7, "Install Elevator A.I."}, -- Title Used for sections only
-      --"RolloverText", T{StringIdBase + 8, "Install the Elevator A.I. for this Space Elevator."},
-      --"RolloverHint", T{StringIdBase + 13, "<left_click> Activate<newline>Ctrl+<left_click> Uninstall A.I. from this Elevator"},
+      "Icon", iconATButtonOff,
+      "RolloverTitle", T{StringIdBase + 400, "Automated Tourism"}, -- Title Used for sections only
+      "RolloverText", T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourism Rocket Status:<right><em>OFF</em>"},
+      "RolloverHint", T{StringIdBase + 402, "<left_click> Activate"},
+      "RolloverDisabledText", T{StringIdBase + 403, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
       "OnContextUpdate", function(self, context)
+      	local rocket = context
+      	local rareExportButton = self.parent[3]
+      	-- setup initial variables
+        if type(rocket.AT_enabled) == "nil" then rocket.AT_enabled = false end
 
+        if rocket.AT_enabled then
+        	rareExportButton:SetEnabled(false)
+        	self:SetIcon(iconATButtonOn)
+        	self:SetRolloverText(T{StringIdBase + 404, "Click to turn off Automated Tourism.<newline>Tourism Rocket Status:<right><em>ON</em>"})
+        else
+        	rareExportButton:SetEnabled(true)
+        	self:SetIcon(iconATButtonOff)
+        	self:SetRolloverText(T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourism Rocket Status:<right><em>OFF</em>"})
+        end -- if not self.cxATstatus
+
+        -- enable or disable button based on exports
+        if rocket.allow_export then
+        	self:SetEnabled(false)
+        else
+        	self:SetEnabled(true)
+        end -- if auto exporting
       end, -- OnContextUpdate
 
       "OnPress", function(self, gamepad)
       	PlayFX("DomeAcceptColonistsChanged", "start", self.context)
+        local rocket = self.context
+        local rareExportButton = self.parent[3]
+        if not rocket.AT_enabled then
+        	rocket.AT_enabled = true
+        	rareExportButton:SetEnabled(false)
+        	self:SetIcon(iconATButtonOn)
+        	rocket:ToggleAutoExport()
+        else
+        	rocket.AT_enabled = false
+        	rareExportButton:SetEnabled(true)
+        	self:SetIcon(iconATButtonOff)
+        	rocket:ToggleAutoExport()
+        end
 
+        --if not rocket.allow_export then rocket.AT_enabled = not rocket.AT_enabled end
      	  ObjModified(self)
       end -- OnPress
     }) -- End PlaceObject
