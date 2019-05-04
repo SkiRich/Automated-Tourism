@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 1st, 2019
+-- Updated May 4th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -14,6 +14,23 @@ local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File 
 local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
 local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
+
+
+
+local function ATsetButtonStatus(ref, state)
+	if type(ref) ~= "table" then return end -- short circuit if ref (self) is not built yet
+	local tbuttons = {
+	 launchButton     = ref.parent[1],
+	 rareExportButton = ref.parent[3],
+	 expeditionButton = ref.parent[4],
+	 salvageButton    = ref.parent[6],
+	} -- tbuttons
+
+  for item, button in pairs(tbuttons) do
+  	button:SetEnabled(state)
+  end -- for button
+
+end -- ATsetButtonStatus(rocket)
 
 ----------------------- OnMsg -------------------------------------------------------------------------------
 
@@ -63,7 +80,6 @@ function OnMsg.ClassesBuilt()
       "RolloverDisabledText", T{StringIdBase + 403, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
       "OnContextUpdate", function(self, context)
       	local rocket = context
-      	local rareExportButton = self.parent[3]
       	-- setup initial variables
         if type(rocket.AT_enabled) == "nil" then rocket.AT_enabled = false end
 
@@ -76,11 +92,11 @@ function OnMsg.ClassesBuilt()
 
         -- toggle tourism
         if rocket.AT_enabled then
-        	rareExportButton:SetEnabled(false)
+        	ATsetButtonStatus(self, false)
         	self:SetIcon(iconATButtonOn)
         	self:SetRolloverText(T{StringIdBase + 404, "Click to turn off Automated Tourism.<newline>Tourism Rocket Status:<right><em>ON</em>"})
         else
-        	rareExportButton:SetEnabled(true)
+        	ATsetButtonStatus(self, true)
         	self:SetIcon(iconATButtonOff)
         	self:SetRolloverText(T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourism Rocket Status:<right><em>OFF</em>"})
         end -- if not self.cxATstatus
@@ -90,18 +106,18 @@ function OnMsg.ClassesBuilt()
       "OnPress", function(self, gamepad)
       	PlayFX("DomeAcceptColonistsChanged", "start", self.context)
         local rocket = self.context
-        local rareExportButton = self.parent[3]
         if not rocket.AT_enabled then
         	rocket.AT_enabled = true
-        	rareExportButton:SetEnabled(false)
         	self:SetIcon(iconATButtonOn)
         	if not rocket.auto_export then rocket:ToggleAutoExport() end
         else
         	rocket.AT_enabled = false
-        	rareExportButton:SetEnabled(true)
         	self:SetIcon(iconATButtonOff)
         	if rocket.auto_export then rocket:ToggleAutoExport() end
-        end
+        	rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
+        	if AT_thread and IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end -- kill the departure thread if its running
+        	ATtoggleTouristBoundary(rocket, false) -- clear the tourist recall boundary
+        end -- if not rocket.AT_enabled
 
         --if not rocket.allow_export then rocket.AT_enabled = not rocket.AT_enabled end
      	  ObjModified(self)

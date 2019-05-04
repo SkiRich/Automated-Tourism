@@ -46,12 +46,45 @@ function ATGetDateTime(currentTime, futureTime)
 	return string.format("Sol: %s Time: %02d:%02d", newsol, newhour, UICity.minute)
 end -- ATGetDateTime()
 
+-- toggle the tourist recall boundary circle
+function ATtoggleTouristBoundary(rocket, state)
+
+  	-- setup rocket recall tourist boundary
+    if state and (not rocket.AT_touristBoundary) then
+      rocket.AT_touristBoundary = Circle:new()
+      rocket.AT_touristBoundary:SetPos(rocket:GetPos())
+      rocket.AT_touristBoundary:SetRadius(const.ColonistMaxDepartureRocketDist)
+      rocket.AT_touristBoundary:SetColor(white)
+    end -- if not rocket.touristBoundary
+
+	  -- turn off boundary
+		if (not state) and rocket.AT_touristBoundary and IsValid(rocket.AT_touristBoundary) then
+			DoneObject(rocket.AT_touristBoundary)
+			rocket.AT_touristBoundary = false
+		end -- if rocket.AT_touristBoundary
+end -- ATtoggleTouristBoundary(rocket, state)
+
 --------------------------------------------------------- OnMsgs --------------------------------------------------------
 
 function OnMsg.RocketReachedEarth(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Reached Earth") end
 
+	if rocket.AT_enabled then
+     -- clear departure variables
+    rocket.AT_departures = 0
+	end -- if rocket.AT_enabled
+
 end -- OnMsg.RocketReachedEarth(rocket)
+
+
+function OnMsg.RocketLaunched(rocket)
+	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Mars") end
+
+	if rocket.AT_enabled then
+     -- turn off tourist recall boundary
+    ATtoggleTouristBoundary(rocket, false)
+	end -- if rocket.AT_enabled
+end -- OnMsg.RocketLaunched(rocket)
 
 
 function OnMsg.RocketLanded(rocket)
@@ -60,12 +93,16 @@ function OnMsg.RocketLanded(rocket)
   if rocket.AT_enabled then
   	rocket.AT_last_arrival_time = GameTime()
 
+  	-- setup rocket recall tourist boundary
+    ATtoggleTouristBoundary(rocket, true)
+
     -- if a thread is already running then delete it (should never happen)
   	if IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end
 
   	-- create thread to wait before launch up to 5 days if no tourists departing
   	rocket.AT_thread = CreateGameTimeThread(function()
   		if rocket.auto_export then rocket:ToggleAutoExport() end -- turn off auto launch sequence
+  		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket")
 
       -- wait 60 seconds to calculate departure time due to landing delay
       -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it now
