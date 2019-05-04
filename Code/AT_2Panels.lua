@@ -67,6 +67,14 @@ function OnMsg.ClassesBuilt()
       	-- setup initial variables
         if type(rocket.AT_enabled) == "nil" then rocket.AT_enabled = false end
 
+        -- enable or disable button based on exports
+        if rocket.allow_export then
+        	self:SetEnabled(false)
+        else
+        	self:SetEnabled(true)
+        end -- if auto exporting
+
+        -- toggle tourism
         if rocket.AT_enabled then
         	rareExportButton:SetEnabled(false)
         	self:SetIcon(iconATButtonOn)
@@ -77,12 +85,6 @@ function OnMsg.ClassesBuilt()
         	self:SetRolloverText(T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourism Rocket Status:<right><em>OFF</em>"})
         end -- if not self.cxATstatus
 
-        -- enable or disable button based on exports
-        if rocket.allow_export then
-        	self:SetEnabled(false)
-        else
-        	self:SetEnabled(true)
-        end -- if auto exporting
       end, -- OnContextUpdate
 
       "OnPress", function(self, gamepad)
@@ -93,12 +95,12 @@ function OnMsg.ClassesBuilt()
         	rocket.AT_enabled = true
         	rareExportButton:SetEnabled(false)
         	self:SetIcon(iconATButtonOn)
-        	rocket:ToggleAutoExport()
+        	if not rocket.auto_export then rocket:ToggleAutoExport() end
         else
         	rocket.AT_enabled = false
         	rareExportButton:SetEnabled(true)
         	self:SetIcon(iconATButtonOff)
-        	rocket:ToggleAutoExport()
+        	if rocket.auto_export then rocket:ToggleAutoExport() end
         end
 
         --if not rocket.allow_export then rocket.AT_enabled = not rocket.AT_enabled end
