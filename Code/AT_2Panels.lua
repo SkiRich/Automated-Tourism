@@ -9,16 +9,58 @@
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
+g_ATLoaded = true
+
 local ModDir = CurrentModPath
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 400-499:  Next is 400
 local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
 local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
+local iconATSection     = ModDir.."UI/Icons/ATSection.png"
 
+--  setup or tear down all the AT variables in a rocket
+local function ATsetupVariables(rocket, init)
+	if init then
+		rocket.AT_enabled              = false
+		rocket.AT_departures           = 0
+		rocket.AT_arriving_tourists    = 0
+		rocket.departuretime           = ""
+		rocket.AT_have_departures      = false
+		rocket.AT_departuretimeText    = ""
+		rocket.AR_last_arrival_time    = ""
+		rocket.AT_touristBoundary      = false
+		rocket.AT_thread               = false
+		rocket.AT_last_voyage_time     = 0
+		rocket.AT_next_voyage_time     = 0
+		rocket.AT_next_voyage_timeText = ""
+		rocket.AT_status               = false
+	else
+	  rocket.AT_enabled              = false
+		rocket.AT_departures           = nil
+		rocket.AT_arriving_tourists    = nil
+		rocket.departuretime           = nil
+		rocket.AT_have_departures      = nil
+		rocket.AT_departuretimeText    = nil
+		rocket.AR_last_arrival_time    = nil
+		rocket.AT_touristBoundary      = nil
+		rocket.AT_thread               = nil
+		rocket.AT_last_voyage_time     = nil
+		rocket.AT_next_voyage_time     = nil
+		rocket.AT_next_voyage_timeText = nil
+		rocket.AT_status               = false
+	end -- if init
+end -- ATsetupvariables(state)
 
-
+-- set the status of the button and show/hide status section
 local function ATsetButtonStatus(ref, state)
 	if type(ref) ~= "table" then return end -- short circuit if ref (self) is not built yet
+
+	local ATSection      = ref.parent.parent.parent.parent.parent.idATSection
+	local ServiceArea    = ref.parent.parent.parent.parent.parent.idContent[2]
+	local DroneArea      = ref.parent.parent.parent.parent.parent.idContent[3]
+	local BasicResources = ref.parent.parent.parent.parent.parent.idContent[6]
+	local AdvResources   = ref.parent.parent.parent.parent.parent.idContent[7]
+
 	local tbuttons = {
 	 launchButton     = ref.parent[1],
 	 rareExportButton = ref.parent[3],
@@ -30,9 +72,61 @@ local function ATsetButtonStatus(ref, state)
   	button:SetEnabled(state)
   end -- for button
 
+  ATSection:SetVisible(not state)
+  ServiceArea:SetVisible(state)
+  DroneArea:SetVisible(state)
+  BasicResources:SetVisible(state)
+  AdvResources:SetVisible(state)
+
 end -- ATsetButtonStatus(rocket)
 
+-- returns the number of tourists waiting on earth
+local function ATcountTouristsOnEarth()
+  local applicantPool = g_ApplicantPool or ""
+  local findTrait = "Tourist"
+  local count = 0
+
+  for idx = #applicantPool, 1, -1 do
+  	if applicantPool[idx][1].traits[findTrait] then
+  		count = count + 1
+  	end -- if applicantPool
+  end -- for idx
+
+	return count
+end -- ATcountTouristsOnEarth()
+
+-- returns the number of tourists on Mars
+local function ATcountTouristsOnMars()
+  local colonists = UICity.labels.Colonist or ""
+  local findTrait = "Tourist"
+  local count = 0
+
+  for i = 1, #colonists do
+  	if colonists[i].traits[findTrait] then count = count + 1 end
+  end -- for i
+
+	return count
+end -- ATcountTouristsOnMars()
+
+
+-- updates the status text of the tourist rocket
+local function ATUpdateStatusText(ui_status)
+	--idATstatusTextResult
+	local ui_status_list = {
+		idle           = T{StringIdBase + 450, "Idle"},
+		pickup         = T{StringIdBase + 451, "Picking up tourists"},
+		flytoearth     = T{StringIdBase + 452, "Flying to earth"},
+		flyingtourists = T{StringIdBase + 453, "Flying back with tourists"},
+		flyingempty    = T{StringIdBase + 453, "Flying back empty"},
+		landed         = T{StringIdBase + 454, "Landed"},
+		waitdepart     = T{StringIdBase + 455, "Waiting to depart"},
+	}
+	return ui_status_list[ui_status]
+end -- ATUpdateStatusText(rocket)
+
+
 ----------------------- OnMsg -------------------------------------------------------------------------------
+
 
 function OnMsg.ClassesBuilt()
 	local XTemplates = XTemplates
@@ -40,10 +134,21 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local EAIControlVer = "v1.0"
+  local ATControlVer = "v1.0"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
+
+  -- re-write OnDemolish to make sure vars, threads and other items are killed
+  local Old_SupplyRocket_OnDemolish = SupplyRocket.OnDemolish
+  function SupplyRocket:OnDemolish()
+  	local rocket = self
+  	if rocket.AT_thread and IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end -- kill the departure thread if its running
+  	ATtoggleTouristBoundary(rocket, false) -- clear the tourist recall boundary
+  	ATsetButtonStatus(self, true) -- reset original butons back on
+  	ATsetupVariables(rocket, false) -- clear all AT vars
+  	return Old_SupplyRocket_OnDemolish(self) -- call original function
+  end -- SupplyRocket:OnDemolish()
 
   --retro fix versioning
   if XT.AT then
@@ -71,17 +176,17 @@ function OnMsg.ClassesBuilt()
     	"UniqueID", ATButtonID1,
     	"Id", "idATbutton",
       "__context_of_kind", "SupplyRocket",
-      "__condition", function (parent, context) return (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+      "__condition", function (parent, context) return g_ATLoaded and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 400, "Automated Tourism"}, -- Title Used for sections only
-      "RolloverText", T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourism Rocket Status:<right><em>OFF</em>"},
+      "RolloverText", T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth()},
       "RolloverHint", T{StringIdBase + 402, "<left_click> Activate"},
       "RolloverDisabledText", T{StringIdBase + 403, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
       "OnContextUpdate", function(self, context)
       	local rocket = context
       	-- setup initial variables
-        if type(rocket.AT_enabled) == "nil" then rocket.AT_enabled = false end
+        if type(rocket.AT_enabled) == "nil" then ATsetupVariables(rocket, true) end
 
         -- enable or disable button based on exports
         if rocket.allow_export then
@@ -92,13 +197,13 @@ function OnMsg.ClassesBuilt()
 
         -- toggle tourism
         if rocket.AT_enabled then
-        	ATsetButtonStatus(self, false)
+        	ATsetButtonStatus(self, false) -- set original buttons to disabled
         	self:SetIcon(iconATButtonOn)
-        	self:SetRolloverText(T{StringIdBase + 404, "Click to turn off Automated Tourism.<newline>Tourism Rocket Status:<right><em>ON</em>"})
+        	self:SetRolloverText(T{StringIdBase + 404, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline><newline>Tourism Rocket Status: <em>ON</em>", tcount = ATcountTouristsOnEarth()})
         else
-        	ATsetButtonStatus(self, true)
+        	ATsetButtonStatus(self, true) -- set original buttons to enabled
         	self:SetIcon(iconATButtonOff)
-        	self:SetRolloverText(T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourism Rocket Status:<right><em>OFF</em>"})
+        	self:SetRolloverText(T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth()})
         end -- if not self.cxATstatus
 
       end, -- OnContextUpdate
@@ -109,20 +214,233 @@ function OnMsg.ClassesBuilt()
         if not rocket.AT_enabled then
         	rocket.AT_enabled = true
         	self:SetIcon(iconATButtonOn)
+        	if ATcountTouristsOnEarth() > 0 then
+        		rocket.AT_status = "pickup"
+        	else
+        		rocket.AT_status = "flytoearth"
+        	end -- if ATcountTouristsOnEarth()
         	if not rocket.auto_export then rocket:ToggleAutoExport() end
         else
         	rocket.AT_enabled = false
         	self:SetIcon(iconATButtonOff)
         	if rocket.auto_export then rocket:ToggleAutoExport() end
         	rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
-        	if AT_thread and IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end -- kill the departure thread if its running
+        	if rocket.AT_thread and IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end -- kill the departure thread if its running
         	ATtoggleTouristBoundary(rocket, false) -- clear the tourist recall boundary
+        	rocket.AT_status = false
         end -- if not rocket.AT_enabled
 
         --if not rocket.allow_export then rocket.AT_enabled = not rocket.AT_enabled end
      	  ObjModified(self)
       end -- OnPress
     }) -- End PlaceObject
+
+    --Check for Cheats Menu and insert before Cheats menu
+    --foundsection, idx = table.find_value(XT, "__template", "sectionCheats")
+    --if not idx then idx = #XT + 1 end
+    idx = 1 -- set tourist section up top
+    if lf_print then print("Inserting AT Section Template into idx: ", tostring(idx)) end
+
+    -- AT Status Section
+    table.insert(XT, idx,
+      PlaceObj("XTemplateTemplate", {
+      	"UniqueID", ATSectionID1,
+      	"Version", ATControlVer,
+      	"Id", "idATSection",
+        "__context_of_kind", "SupplyRocket",
+        "__condition", function (parent, context) return g_ATLoaded and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed)end,
+        "__template", "InfopanelSection",
+        "Icon", iconATSection,
+        "Title", T{StringIdBase + 405, "Tourist Rocket Status"},
+        "RolloverTitle", T{StringIdBase + 400, "Automated Tourism"},
+        "RolloverText", T{StringIdBase + 406, "Status Area Text"},
+        "OnContextUpdate", function(self, context)
+        	local rocket = context
+        	self.idATstatusSection.idATstatusTextResult:SetText(ATUpdateStatusText(rocket.AT_status or "idle"))
+          self.idATtouristSection.idATarrivingTextResult:SetText(T{StringIdBase, "<colonist(AT_arriving_tourists)>"})
+          self.idATtouristsOnEarthSection.idATtouristsOnEarthTextResult:SetText(T{StringIdBase, "<colonist(touristsOnEarth)>", touristsOnEarth = ATcountTouristsOnEarth()})
+          self.idATtouristsOnMarsSection.idATtouristsOnMarsTextResult:SetText(T{StringIdBase, "<colonist(touristsOnMars)>", touristsOnMars = ATcountTouristsOnMars()})
+          self.idATdeparturesSection.idATdeparturesTextResult:SetText(T{StringIdBase, "<colonist(AT_departures)>"})
+          self.idATdepartureTimeSection.idATdepartureTimeTextResult:SetText(T{StringIdBase, "<AT_departuretimeText>"})
+          -- determine if voyage is ready
+          if rocket.AT_next_voyage_time < GameTime() then rocket.AT_next_voyage_timeText = "Ready for pickup" end
+          self.idATvoyageTimeSection.idATvoyageTimeTextResult:SetText(T{StringIdBase, "<AT_next_voyage_timeText>"})
+        end, -- OnContextUpdate
+      },{
+
+      	 -- Status Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATstatusSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+    	  	--"RolloverTitle", T{StringIdBase + 17, "Elevator A.I. Restock Schedule"},
+          --"RolloverText", T{StringIdBase + 18, "The schedule is set by the frequency.  24 hours are divided by the frequency number and the A.I schedule is evenly distributed throughout the day.<newline><newline><em>Schedule</em><newline><EAI_schedule>"},
+	   		 },{
+          	-- Status Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATstatusText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 407, "Status:"},
+            }),
+            -- Status Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATstatusTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+              --"Text", ATUpdateStatusText("idle"),
+            }),
+	   	  }), -- end of idATstatusSection
+
+      	 -- Arriving Tourist Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATtouristSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+	   		 },{
+          	-- Arriving Tourists Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATarrivingText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 408, "Arriving tourist onboard:"},
+            }),
+            -- Arriving Tourists Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATarrivingTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+            }),
+	   	  }), -- end of idATtouristSection
+
+      	 -- Tourist on Earth Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATtouristsOnEarthSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+	   		 },{
+          	-- Arriving Tourists Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATtouristsOnEarthText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 409, "Tourists waiting on Earth:"},
+            }),
+            -- Arriving Tourists Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATtouristsOnEarthTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+            }),
+	   	  }), -- end of idATtouristOnEarthSection
+
+      	 -- Tourist on Mars Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATtouristsOnMarsSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+	   		 },{
+          	-- Tourists on Mars Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATtouristsOnMarsText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 410, "Tourists residing on Mars:"},
+            }),
+            -- Tourists on Mars Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATtouristsOnMarsTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+            }),
+	   	  }), -- end of idATtouristOnMarsSection
+
+      	 -- Departing Tourists Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATdeparturesSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+	   		 },{
+          	-- Departing Tourists Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATdeparturesText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 411, "Departures on rocket:"},
+            }),
+            -- Departing Tourists Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATdeparturesTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+            }),
+	   	  }), -- end of idATtouristSection
+
+      	 -- Departure Time Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATdepartureTimeSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+	   		 },{
+          	-- Departure Time Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATdepartureTimeText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 412, "Next departure:"},
+            }),
+            -- Departure Time Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATdepartureTimeTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+            }),
+	   	  }), -- end of idATdepartureSection
+
+      	 -- Voyage Time Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATvoyageTimeSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+	   		 },{
+          	-- Departure Time Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATvoyageTimeText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 413, "Next voyage:"},
+            }),
+            -- Departure Time Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATvoyageTimeTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+            }),
+	   	  }), -- end of idATvoyageSection
+
+      }) -- End PlaceObject XTemplate
+    ) --table.insert
 
   end -- XT.AT
 

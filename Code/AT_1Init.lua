@@ -66,6 +66,7 @@ end -- ATtoggleTouristBoundary(rocket, state)
 
 --------------------------------------------------------- OnMsgs --------------------------------------------------------
 
+
 function OnMsg.RocketReachedEarth(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Reached Earth") end
 
@@ -83,6 +84,18 @@ function OnMsg.RocketLaunched(rocket)
 	if rocket.AT_enabled then
      -- turn off tourist recall boundary
     ATtoggleTouristBoundary(rocket, false)
+    rocket.AT_departuretimeText = ""
+
+    -- determing status
+    local tt = 0 < (rocket.custom_travel_time_earth or 0) and rocket.custom_travel_time_earth or g_Consts.TravelTimeMarsEarth
+    if (rocket.AT_next_voyage_time > 0) and (rocket.AT_next_voyage_time  >= (GameTime() + tt)) then
+    	if lf_print then print("Status set to flytoearth") end
+    	rocket.AT_status = "flytoearth"
+    else
+    	if lf_print then print("Status set to pickup") end
+    	rocket.AT_status = "pickup"
+    end -- if (rocket.AT_nextvoyage_time > 0) -- determine status
+
 	end -- if rocket.AT_enabled
 end -- OnMsg.RocketLaunched(rocket)
 
@@ -92,6 +105,7 @@ function OnMsg.RocketLanded(rocket)
 
   if rocket.AT_enabled then
   	rocket.AT_last_arrival_time = GameTime()
+  	rocket.AT_status = "landed"
 
   	-- setup rocket recall tourist boundary
     ATtoggleTouristBoundary(rocket, true)
@@ -107,6 +121,8 @@ function OnMsg.RocketLanded(rocket)
       -- wait 60 seconds to calculate departure time due to landing delay
       -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it now
       rocket.AT_departures = 0
+      --~ set an on screen message here for arriving tourists
+      rocket.AT_arriving_tourists = 0
       rocket.AT_departuretime = ""
       rocket.AT_departuretimeText = ""
       Sleep(60000)
@@ -118,6 +134,7 @@ function OnMsg.RocketLanded(rocket)
   		if not rocket.AT_have_departures then
   			-- if not departures
   			if lf_print then print(string.format("Rocket waiting until %s - No current departures", rocket.AT_departuretimeText)) end
+  			rocket.AT_status = "waitdepart"
   		  while (GameTime() < rocket.AT_departuretime) do
   			  Sleep(10000) -- sleep 10 seconds at a time
   		  end -- while GameTime
@@ -132,6 +149,7 @@ function OnMsg.RocketLanded(rocket)
   		end -- if not rocket.AT_have_departures
 
   		if rocket.AT_have_departures then
+  			rocket.AT_status = "waitdepart"
   			-- if we have departures then reset and start countdown
   		  if lf_print then print(string.format("Rocket has %s departures, departing %s", #rocket.departures, rocket.AT_departuretimeText)) end
   		  while (GameTime() < rocket.AT_departuretime) do
@@ -160,7 +178,7 @@ function OnMsg.RocketLaunchFromEarth(rocket)
   	  -- gather new tourists
   	  local UICity   = UICity
   	  local capacity = Min(g_Consts.MaxColonistsPerRocket, 20) -- set capacity to the smaller of current allowed passengers or 20
-      local applicantPool = g_ApplicantPool
+      local applicantPool = g_ApplicantPool or ""
       local findTrait = "Tourist"
       local count = 0
       local tourists = {}
@@ -200,12 +218,15 @@ function OnMsg.RocketLaunchFromEarth(rocket)
       -- load up the tourists and set last voyage time
       if lf_print then print(string.format("Sending tourist rocket with %s tourists", #tourists)) end
       rocket.cargo = cargo
+      rocket.AT_arriving_tourists = #tourists
+      rocket.AT_status = "flyingtourists"
       rocket.AT_last_voyage_time = GameTime()
       rocket.AT_next_voyage_time = rocket.AT_last_voyage_time + (5 * const.DayDuration)
       rocket.AT_next_voyage_timeText = ATGetDateTime(rocket.AT_last_voyage_time, rocket.AT_next_voyage_time)
 
     else
     	if lf_print and rocket.AT_enabled then print(string.format("Last tourist rocket was %.2f sols ago.  Not sending new tourists.", (GameTime() - rocket.AT_last_voyage_time + 0.00)/const.DayDuration)) end
+      rocket.AT_status = "flyingempty"
     end --if (not rocket.AT_last_voyage_time)
 
   else
