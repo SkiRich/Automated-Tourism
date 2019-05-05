@@ -1,4 +1,14 @@
 # Automated Tourism
+## v0.05 05/05/2019 6:57:21 PM
+
+#### Added
+- ATcalcTourismDollars()
+- added total tourism funding
+
+#### Todo
+- on screen notifications
+
+--------------------------------------------------------
 ## v0.04 05/04/2019 9:52:28 PM
 
 #### Added

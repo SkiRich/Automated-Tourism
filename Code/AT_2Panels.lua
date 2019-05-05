@@ -97,7 +97,7 @@ end -- ATcountTouristsOnEarth()
 
 -- returns the number of tourists on Mars
 local function ATcountTouristsOnMars()
-  local colonists = UICity.labels.Colonist or ""
+  local colonists = (UICity and UICity.labels.Colonist) or ""
   local findTrait = "Tourist"
   local count = 0
 
@@ -123,6 +123,27 @@ local function ATUpdateStatusText(ui_status)
 	}
 	return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
+
+
+-- calculate funding from tourism, return string
+local function ATcalcTourismDollars()
+	local tourismFunds = (UICity and UICity.funding_gain_total.Tourist) or 0
+	local totalFunds = 0
+	local denom = ""
+	if tourismFunds > 0 then
+		totalFunds = (0.00 + tourismFunds) / const.ResourceScale / 1000
+		if totalFunds >= 1000 then
+			totalFunds = totalFunds / 1000
+			denom = "B"
+			return string.format("$%.2f%s", totalFunds, denom)
+		else
+			denom = "M"
+			return string.format("$%d%s", totalFunds, denom)
+		end -- if totalFunds
+	else
+		return 0
+	end -- if tourismFunds
+end -- ATcalcTourismDollars()
 
 
 ----------------------- OnMsg -------------------------------------------------------------------------------
@@ -180,7 +201,7 @@ function OnMsg.ClassesBuilt()
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 400, "Automated Tourism"}, -- Title Used for sections only
-      "RolloverText", T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth()},
+      "RolloverText", T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()},
       "RolloverHint", T{StringIdBase + 402, "<left_click> Activate"},
       "RolloverDisabledText", T{StringIdBase + 403, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
       "OnContextUpdate", function(self, context)
@@ -199,11 +220,11 @@ function OnMsg.ClassesBuilt()
         if rocket.AT_enabled then
         	ATsetButtonStatus(self, false) -- set original buttons to disabled
         	self:SetIcon(iconATButtonOn)
-        	self:SetRolloverText(T{StringIdBase + 404, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline><newline>Tourism Rocket Status: <em>ON</em>", tcount = ATcountTouristsOnEarth()})
+        	self:SetRolloverText(T{StringIdBase + 404, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>ON</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()})
         else
         	ATsetButtonStatus(self, true) -- set original buttons to enabled
         	self:SetIcon(iconATButtonOff)
-        	self:SetRolloverText(T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth()})
+        	self:SetRolloverText(T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()})
         end -- if not self.cxATstatus
 
       end, -- OnContextUpdate
@@ -265,6 +286,7 @@ function OnMsg.ClassesBuilt()
           -- determine if voyage is ready
           if rocket.AT_next_voyage_time < GameTime() then rocket.AT_next_voyage_timeText = "Ready for pickup" end
           self.idATvoyageTimeSection.idATvoyageTimeTextResult:SetText(T{StringIdBase, "<AT_next_voyage_timeText>"})
+          self.idATfundingSection.idATfundingTextResult:SetText(ATcalcTourismDollars())
         end, -- OnContextUpdate
       },{
 
@@ -294,6 +316,30 @@ function OnMsg.ClassesBuilt()
               --"Text", ATUpdateStatusText("idle"),
             }),
 	   	  }), -- end of idATstatusSection
+
+      	 -- Tourism Dollars Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATfundingSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+	   		 },{
+          	-- Tourism Dollars Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATfundingText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 414, "Total funds from tourists:"},
+            }),
+            -- Tourism Dollars Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATfundingTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+            }),
+	   	  }), -- end of idATfundingSection
 
       	 -- Arriving Tourist Section
 			   PlaceObj('XTemplateWindow', {
@@ -423,14 +469,14 @@ function OnMsg.ClassesBuilt()
 	   			"Margins", box(0, 0, 0, 0),
     		 	"RolloverTemplate", "Rollover",
 	   		 },{
-          	-- Departure Time Text Section
+          	-- Voyage Time Text Section
             PlaceObj("XTemplateTemplate", {
               "__template", "InfopanelText",
               "Id", "idATvoyageTimeText",
               "Margins", box(0, 0, 0, 0),
               "Text", T{StringIdBase + 413, "Next voyage:"},
             }),
-            -- Departure Time Text Result Section
+            -- Voyage Time Text Result Section
             PlaceObj("XTemplateTemplate", {
               "__template", "InfopanelText",
               "Id", "idATvoyageTimeTextResult",

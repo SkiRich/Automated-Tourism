@@ -3,10 +3,10 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 1st, 2019
+-- Updated May 5th, 2019
 
 
-local lf_print = true -- Setup debug printing in local file
+local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
 
