@@ -9,10 +9,14 @@
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
+g_ATnoticeDismissTime = 20000  -- 10 seconds the dismiss time for notifications
 
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 0-399:  Next is 1
 local steam_id = "0"
 local mod_name = "Automated Tourism"
+
+local ModDir = CurrentModPath
+local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 
 -- calculate departure time
 local function ATcalcDepartureTime(rocket)
@@ -86,6 +90,11 @@ function OnMsg.RocketLaunched(rocket)
     ATtoggleTouristBoundary(rocket, false)
     rocket.AT_departuretimeText = ""
 
+    -- notification of rocket launch
+    local msg = T{StringIdBase + 2, "Departures: <count>", count = rocket.AT_departures}
+    AddCustomOnScreenNotification("AT_Notice_Leaving", T{StringIdBase + 1, "Tourist Rocket Leaving"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_ATnoticeDismissTime})
+    PlayFX("UINotificationResearchComplete", rocket)
+
     -- determing status
     local tt = 0 < (rocket.custom_travel_time_earth or 0) and rocket.custom_travel_time_earth or g_Consts.TravelTimeMarsEarth
     if (rocket.AT_next_voyage_time > 0) and (rocket.AT_next_voyage_time  >= (GameTime() + tt)) then
@@ -109,6 +118,11 @@ function OnMsg.RocketLanded(rocket)
 
   	-- setup rocket recall tourist boundary
     ATtoggleTouristBoundary(rocket, true)
+
+    -- notification of rocket landed
+    local msg = T{StringIdBase + 4, "Arrivals: <count>", count = rocket.AT_arriving_tourists}
+    AddCustomOnScreenNotification("AT_Notice_Landed", T{StringIdBase + 3, "Tourist Rocket Landed"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_ATnoticeDismissTime})
+    PlayFX("UINotificationResearchComplete", rocket)
 
     -- if a thread is already running then delete it (should never happen)
   	if IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end
@@ -228,6 +242,11 @@ function OnMsg.RocketLaunchFromEarth(rocket)
     	if lf_print and rocket.AT_enabled then print(string.format("Last tourist rocket was %.2f sols ago.  Not sending new tourists.", (GameTime() - rocket.AT_last_voyage_time + 0.00)/const.DayDuration)) end
       rocket.AT_status = "flyingempty"
     end --if (not rocket.AT_last_voyage_time)
+
+    -- notification of rocket leaving earth
+    local msg = T{StringIdBase + 6, "On Board: <count>", count = rocket.AT_arriving_tourists}
+    AddCustomOnScreenNotification("AT_Notice_Voyage", T{StringIdBase + 5, "Tourist Rocket En Route"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_ATnoticeDismissTime})
+    PlayFX("UINotificationResearchComplete", rocket)
 
   else
   	-- short circuit if not a tourist rocket

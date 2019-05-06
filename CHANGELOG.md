@@ -1,4 +1,17 @@
 # Automated Tourism
+## v0.06 05/06/2019 2:03:27 AM
+
+#### Added
+- Added on screen notificaction for landed, leaving earth, and leaving mars
+
+#### Todo
+- Mod config Options
+  - show/no show tourist range
+  - notice dismiss time
+  - notices
+  - max tourist
+
+--------------------------------------------------------
 ## v0.05 05/05/2019 6:57:21 PM
 
 #### Added
