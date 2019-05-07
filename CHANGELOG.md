@@ -1,4 +1,13 @@
 # Automated Tourism
+## version 05/06/2019 8:44:19 PM
+#### Changed
+- global variables now in table
+
+#### Added
+- mod config options
+- change dismiss time
+
+--------------------------------------------------------
 ## v0.06 05/06/2019 2:03:27 AM
 
 #### Added

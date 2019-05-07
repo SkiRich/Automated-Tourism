@@ -9,12 +9,17 @@
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
-g_ATnoticeDismissTime = 20000  -- 10 seconds the dismiss time for notifications
+-- global variable to contain AT options
+g_AT_Options = {
+	ATdismissMsg        = true,
+	ATnoticeDismissTime = 20 * 1000, -- 20 seconds the dismiss time for notifications
+	ATMaxTourists       = 20,        -- Maximum number of tourists per rocket
+	ATvoyageWaitTime    = 5,         -- Wait this amount of sols between voyages
+	ATrecallRadius      = true,      -- display recall radius on landed rocket
+} -- g_AT_Options
 
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 0-399:  Next is 1
-local steam_id = "0"
-local mod_name = "Automated Tourism"
 
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 300-349:  Next is 1
 local ModDir = CurrentModPath
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 
@@ -23,7 +28,7 @@ local function ATcalcDepartureTime(rocket)
   rocket.AT_departures = (rocket.departures and #rocket.departures) or 0
 
   if rocket.AT_departures == 0 then
-  	rocket.AT_departuretime = rocket.AT_last_arrival_time + (5 * const.DayDuration) -- wait 5 days to depart if no immediate departures
+  	rocket.AT_departuretime = rocket.AT_last_arrival_time + (g_AT_Options.ATvoyageWaitTime * const.DayDuration) -- wait 5 days to depart if no immediate departures
   	rocket.AT_have_departures = false
   else
   	rocket.AT_departuretime = rocket.AT_last_arrival_time + (12 * const.HourDuration) -- wait 1/2 day to depart since we got departures
@@ -92,7 +97,7 @@ function OnMsg.RocketLaunched(rocket)
 
     -- notification of rocket launch
     local msg = T{StringIdBase + 2, "Departures: <count>", count = rocket.AT_departures}
-    AddCustomOnScreenNotification("AT_Notice_Leaving", T{StringIdBase + 1, "Tourist Rocket Leaving"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_ATnoticeDismissTime})
+    AddCustomOnScreenNotification("AT_Notice_Leaving", T{StringIdBase + 1, "Tourist Rocket Leaving"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime})
     PlayFX("UINotificationResearchComplete", rocket)
 
     -- determing status
@@ -117,11 +122,11 @@ function OnMsg.RocketLanded(rocket)
   	rocket.AT_status = "landed"
 
   	-- setup rocket recall tourist boundary
-    ATtoggleTouristBoundary(rocket, true)
+    if g_AT_Options.ATrecallRadius then ATtoggleTouristBoundary(rocket, true) end
 
     -- notification of rocket landed
     local msg = T{StringIdBase + 4, "Arrivals: <count>", count = rocket.AT_arriving_tourists}
-    AddCustomOnScreenNotification("AT_Notice_Landed", T{StringIdBase + 3, "Tourist Rocket Landed"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_ATnoticeDismissTime})
+    AddCustomOnScreenNotification("AT_Notice_Landed", T{StringIdBase + 3, "Tourist Rocket Landed"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime})
     PlayFX("UINotificationResearchComplete", rocket)
 
     -- if a thread is already running then delete it (should never happen)
@@ -191,7 +196,7 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 
   	  -- gather new tourists
   	  local UICity   = UICity
-  	  local capacity = Min(g_Consts.MaxColonistsPerRocket, 20) -- set capacity to the smaller of current allowed passengers or 20
+  	  local capacity = Min(g_Consts.MaxColonistsPerRocket, g_AT_Options.ATMaxTourists) -- set capacity to the smaller of current allowed passengers or 20
       local applicantPool = g_ApplicantPool or ""
       local findTrait = "Tourist"
       local count = 0
@@ -245,7 +250,7 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 
     -- notification of rocket leaving earth
     local msg = T{StringIdBase + 6, "On Board: <count>", count = rocket.AT_arriving_tourists}
-    AddCustomOnScreenNotification("AT_Notice_Voyage", T{StringIdBase + 5, "Tourist Rocket En Route"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_ATnoticeDismissTime})
+    AddCustomOnScreenNotification("AT_Notice_Voyage", T{StringIdBase + 5, "Tourist Rocket En Route"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime})
     PlayFX("UINotificationResearchComplete", rocket)
 
   else

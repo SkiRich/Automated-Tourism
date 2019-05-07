@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 4th, 2019
+-- Updated May 5th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -12,7 +12,7 @@ local lf_print = false -- Setup debug printing in local file
 g_ATLoaded = true
 
 local ModDir = CurrentModPath
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 400-499:  Next is 400
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 400
 local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
 local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
@@ -113,13 +113,13 @@ end -- ATcountTouristsOnMars()
 local function ATUpdateStatusText(ui_status)
 	--idATstatusTextResult
 	local ui_status_list = {
-		idle           = T{StringIdBase + 450, "Idle"},
-		pickup         = T{StringIdBase + 451, "Picking up tourists"},
-		flytoearth     = T{StringIdBase + 452, "Flying to earth"},
-		flyingtourists = T{StringIdBase + 453, "Flying back with tourists"},
-		flyingempty    = T{StringIdBase + 453, "Flying back empty"},
-		landed         = T{StringIdBase + 454, "Landed"},
-		waitdepart     = T{StringIdBase + 455, "Waiting to depart"},
+		idle           = T{StringIdBase + 150, "Idle"},
+		pickup         = T{StringIdBase + 151, "Picking up tourists"},
+		flytoearth     = T{StringIdBase + 152, "Flying to earth"},
+		flyingtourists = T{StringIdBase + 153, "Flying back with tourists"},
+		flyingempty    = T{StringIdBase + 153, "Flying back empty"},
+		landed         = T{StringIdBase + 154, "Landed"},
+		waitdepart     = T{StringIdBase + 155, "Waiting to depart"},
 	}
 	return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
@@ -200,10 +200,10 @@ function OnMsg.ClassesBuilt()
       "__condition", function (parent, context) return g_ATLoaded and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
-      "RolloverTitle", T{StringIdBase + 400, "Automated Tourism"}, -- Title Used for sections only
-      "RolloverText", T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()},
-      "RolloverHint", T{StringIdBase + 402, "<left_click> Activate"},
-      "RolloverDisabledText", T{StringIdBase + 403, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
+      "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"}, -- Title Used for sections only
+      "RolloverText", T{StringIdBase + 101, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()},
+      "RolloverHint", T{StringIdBase + 102, "<left_click> Activate"},
+      "RolloverDisabledText", T{StringIdBase + 103, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
       "OnContextUpdate", function(self, context)
       	local rocket = context
       	-- setup initial variables
@@ -220,11 +220,11 @@ function OnMsg.ClassesBuilt()
         if rocket.AT_enabled then
         	ATsetButtonStatus(self, false) -- set original buttons to disabled
         	self:SetIcon(iconATButtonOn)
-        	self:SetRolloverText(T{StringIdBase + 404, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>ON</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()})
+        	self:SetRolloverText(T{StringIdBase + 104, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>ON</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()})
         else
         	ATsetButtonStatus(self, true) -- set original buttons to enabled
         	self:SetIcon(iconATButtonOff)
-        	self:SetRolloverText(T{StringIdBase + 401, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()})
+        	self:SetRolloverText(T{StringIdBase + 101, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()})
         end -- if not self.cxATstatus
 
       end, -- OnContextUpdate
@@ -272,9 +272,9 @@ function OnMsg.ClassesBuilt()
         "__condition", function (parent, context) return g_ATLoaded and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed)end,
         "__template", "InfopanelSection",
         "Icon", iconATSection,
-        "Title", T{StringIdBase + 405, "Tourist Rocket Status"},
-        "RolloverTitle", T{StringIdBase + 400, "Automated Tourism"},
-        "RolloverText", T{StringIdBase + 406, "Status Area Text"},
+        "Title", T{StringIdBase + 105, "Tourist Rocket Status"},
+        "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"},
+        "RolloverText", T{StringIdBase + 106, "Status Area Text"},
         "OnContextUpdate", function(self, context)
         	local rocket = context
         	self.idATstatusSection.idATstatusTextResult:SetText(ATUpdateStatusText(rocket.AT_status or "idle"))
@@ -305,7 +305,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATstatusText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 407, "Status:"},
+              "Text", T{StringIdBase + 107, "Status:"},
             }),
             -- Status Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -330,7 +330,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATfundingText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 414, "Total funds from tourists:"},
+              "Text", T{StringIdBase + 114, "Total funds from tourists:"},
             }),
             -- Tourism Dollars Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -354,7 +354,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATarrivingText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 408, "Arriving tourist onboard:"},
+              "Text", T{StringIdBase + 108, "Arriving tourist onboard:"},
             }),
             -- Arriving Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -378,7 +378,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATtouristsOnEarthText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 409, "Tourists waiting on Earth:"},
+              "Text", T{StringIdBase + 109, "Tourists waiting on Earth:"},
             }),
             -- Arriving Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -402,7 +402,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATtouristsOnMarsText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 410, "Tourists residing on Mars:"},
+              "Text", T{StringIdBase + 110, "Tourists residing on Mars:"},
             }),
             -- Tourists on Mars Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -426,7 +426,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATdeparturesText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 411, "Departures on rocket:"},
+              "Text", T{StringIdBase + 111, "Departures on rocket:"},
             }),
             -- Departing Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -450,7 +450,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATdepartureTimeText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 412, "Next departure:"},
+              "Text", T{StringIdBase + 112, "Next departure:"},
             }),
             -- Departure Time Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -474,7 +474,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATvoyageTimeText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 413, "Next voyage:"},
+              "Text", T{StringIdBase + 113, "Next voyage:"},
             }),
             -- Voyage Time Text Result Section
             PlaceObj("XTemplateTemplate", {
