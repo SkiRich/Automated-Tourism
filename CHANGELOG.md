@@ -1,5 +1,36 @@
 # Automated Tourism
-## version 05/06/2019 8:44:19 PM
+## v0.08 05/07/2019 4:46:45 AM
+#### Changed
+- Moved rewritten classes to ClassesGenerate()
+- Streamlined SupplyRocket.OnDemolish
+- ATsetupVariables(rocket, init)
+  - now full nil
+  - aded missing vars and fixed mispelled vars
+- updated control ver to 1.1
+- took ATsetupVariables(rocket, true) out of oncontextupdate and moved to onpress
+
+#### Added
+- rewrite of GetRocketExpeditionStatus(rocket)
+- rewrite of SupplyRocket:IsRocketLanded()
+- Early departures vars and mod config to allow for rockets to leave early if voyages exist
+  - ATearlyDepartures
+- created OnMsg.ClassesGenerate() section
+- added control var to idATSection (rocket.AT_next_voyage_time)
+
+#### Removed
+
+#### Fixed Issues
+- can select a tourist rocket in expedition view - changed to disabled
+- init vars in ATsetupVariables(rocket, init) incorrect, fixed
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
+## v0.07 05/06/2019 8:44:19 PM
 #### Changed
 - global variables now in table
 

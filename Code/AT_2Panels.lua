@@ -12,7 +12,7 @@ local lf_print = false -- Setup debug printing in local file
 g_ATLoaded = true
 
 local ModDir = CurrentModPath
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 400
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 116
 local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
 local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
@@ -21,33 +21,36 @@ local iconATSection     = ModDir.."UI/Icons/ATSection.png"
 --  setup or tear down all the AT variables in a rocket
 local function ATsetupVariables(rocket, init)
 	if init then
-		rocket.AT_enabled              = false
-		rocket.AT_departures           = 0
-		rocket.AT_arriving_tourists    = 0
-		rocket.departuretime           = ""
-		rocket.AT_have_departures      = false
-		rocket.AT_departuretimeText    = ""
-		rocket.AR_last_arrival_time    = ""
-		rocket.AT_touristBoundary      = false
-		rocket.AT_thread               = false
-		rocket.AT_last_voyage_time     = 0
-		rocket.AT_next_voyage_time     = 0
-		rocket.AT_next_voyage_timeText = ""
-		rocket.AT_status               = false
+		rocket.AT_enabled              = true  -- var used to turn system on/off
+		rocket.AT_departures           = 0      -- number of tourists returning to earth
+		rocket.AT_arriving_tourists    = 0      -- number of tourists picked up from earth
+		rocket.AT_departuretime        = 0      -- gametime var for departure time
+		rocket.AT_have_departures      = false  -- bool var to signify we got departures onnboard
+		rocket.AT_departuretimeText    = ""     -- text representation of gametime var
+		rocket.AT_last_arrival_time    = 0      -- gametime var for last time rocket landed
+		rocket.AT_touristBoundary      = false  -- var holds circle object for tourist boundary
+		rocket.AT_last_voyage_time     = 0      -- gametime var holds last voyage from earth
+		rocket.AT_next_voyage_time     = 0      -- gametime var holds next voyage from earth
+		rocket.AT_next_voyage_timeText = ""     -- text representation of gametime var
+		rocket.AT_status               = false  -- text var holds current status message
+		rocket.AT_thread               = false  -- var holds countdown thread for departures
 	else
-	  rocket.AT_enabled              = false
+	  rocket.AT_enabled              = nil
 		rocket.AT_departures           = nil
 		rocket.AT_arriving_tourists    = nil
-		rocket.departuretime           = nil
+		rocket.AT_departuretime        = nil
 		rocket.AT_have_departures      = nil
 		rocket.AT_departuretimeText    = nil
-		rocket.AR_last_arrival_time    = nil
+		rocket.AT_last_arrival_time    = nil
+		ATtoggleTouristBoundary(rocket, false) -- clear the tourist recall boundary
 		rocket.AT_touristBoundary      = nil
-		rocket.AT_thread               = nil
 		rocket.AT_last_voyage_time     = nil
 		rocket.AT_next_voyage_time     = nil
 		rocket.AT_next_voyage_timeText = nil
-		rocket.AT_status               = false
+		rocket.AT_status               = nil
+		if rocket.AT_thread and IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end -- kill the departure thread if its running
+		rocket.AT_thread               = nil
+		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
 	end -- if init
 end -- ATsetupvariables(state)
 
@@ -155,21 +158,11 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.0"
+  local ATControlVer = "v1.1"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
 
-  -- re-write OnDemolish to make sure vars, threads and other items are killed
-  local Old_SupplyRocket_OnDemolish = SupplyRocket.OnDemolish
-  function SupplyRocket:OnDemolish()
-  	local rocket = self
-  	if rocket.AT_thread and IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end -- kill the departure thread if its running
-  	ATtoggleTouristBoundary(rocket, false) -- clear the tourist recall boundary
-  	ATsetButtonStatus(self, true) -- reset original butons back on
-  	ATsetupVariables(rocket, false) -- clear all AT vars
-  	return Old_SupplyRocket_OnDemolish(self) -- call original function
-  end -- SupplyRocket:OnDemolish()
 
   --retro fix versioning
   if XT.AT then
@@ -206,8 +199,6 @@ function OnMsg.ClassesBuilt()
       "RolloverDisabledText", T{StringIdBase + 103, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
       "OnContextUpdate", function(self, context)
       	local rocket = context
-      	-- setup initial variables
-        if type(rocket.AT_enabled) == "nil" then ATsetupVariables(rocket, true) end
 
         -- enable or disable button based on exports
         if rocket.allow_export then
@@ -233,7 +224,7 @@ function OnMsg.ClassesBuilt()
       	PlayFX("DomeAcceptColonistsChanged", "start", self.context)
         local rocket = self.context
         if not rocket.AT_enabled then
-        	rocket.AT_enabled = true
+        	ATsetupVariables(rocket, true)
         	self:SetIcon(iconATButtonOn)
         	if ATcountTouristsOnEarth() > 0 then
         		rocket.AT_status = "pickup"
@@ -245,10 +236,7 @@ function OnMsg.ClassesBuilt()
         	rocket.AT_enabled = false
         	self:SetIcon(iconATButtonOff)
         	if rocket.auto_export then rocket:ToggleAutoExport() end
-        	rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
-        	if rocket.AT_thread and IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end -- kill the departure thread if its running
-        	ATtoggleTouristBoundary(rocket, false) -- clear the tourist recall boundary
-        	rocket.AT_status = false
+        	ATsetupVariables(rocket, false)
         end -- if not rocket.AT_enabled
 
         --if not rocket.allow_export then rocket.AT_enabled = not rocket.AT_enabled end
@@ -284,7 +272,7 @@ function OnMsg.ClassesBuilt()
           self.idATdeparturesSection.idATdeparturesTextResult:SetText(T{StringIdBase, "<colonist(AT_departures)>"})
           self.idATdepartureTimeSection.idATdepartureTimeTextResult:SetText(T{StringIdBase, "<AT_departuretimeText>"})
           -- determine if voyage is ready
-          if rocket.AT_next_voyage_time < GameTime() then rocket.AT_next_voyage_timeText = "Ready for pickup" end
+          if rocket.AT_next_voyage_time and (rocket.AT_next_voyage_time < GameTime()) then rocket.AT_next_voyage_timeText = "Ready for pickup" end
           self.idATvoyageTimeSection.idATvoyageTimeTextResult:SetText(T{StringIdBase, "<AT_next_voyage_timeText>"})
           self.idATfundingSection.idATfundingTextResult:SetText(ATcalcTourismDollars())
         end, -- OnContextUpdate

@@ -16,29 +16,14 @@ g_AT_Options = {
 	ATMaxTourists       = 20,        -- Maximum number of tourists per rocket
 	ATvoyageWaitTime    = 5,         -- Wait this amount of sols between voyages
 	ATrecallRadius      = true,      -- display recall radius on landed rocket
+	ATearlyDepartures   = true,      -- allow for earlier departures when voyages waiting
 } -- g_AT_Options
 
 
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 300-349:  Next is 1
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 300-349:  Next is 7
 local ModDir = CurrentModPath
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 
--- calculate departure time
-local function ATcalcDepartureTime(rocket)
-  rocket.AT_departures = (rocket.departures and #rocket.departures) or 0
-
-  if rocket.AT_departures == 0 then
-  	rocket.AT_departuretime = rocket.AT_last_arrival_time + (g_AT_Options.ATvoyageWaitTime * const.DayDuration) -- wait 5 days to depart if no immediate departures
-  	rocket.AT_have_departures = false
-  else
-  	rocket.AT_departuretime = rocket.AT_last_arrival_time + (12 * const.HourDuration) -- wait 1/2 day to depart since we got departures
-  	rocket.AT_have_departures = true
-  end -- rocket.AT_departures
-
-  -- add departure time text
-  rocket.AT_departuretimeText = ATGetDateTime(rocket.AT_last_arrival_time, rocket.AT_departuretime)
-
-end -- ATcalcDepartureTime()
 
 -- return sol, hour and minute of futureTime
 function ATGetDateTime(currentTime, futureTime)
@@ -54,6 +39,30 @@ function ATGetDateTime(currentTime, futureTime)
 	end -- if newhour
 	return string.format("Sol: %s Time: %02d:%02d", newsol, newhour, UICity.minute)
 end -- ATGetDateTime()
+
+
+-- calculate departure time
+local function ATcalcDepartureTime(rocket)
+  rocket.AT_departures = (rocket.departures and #rocket.departures) or 0
+
+  if rocket.AT_departures == 0 then
+  	--no deparures then wait 5 days
+  	rocket.AT_departuretime = rocket.AT_last_arrival_time + (g_AT_Options.ATvoyageWaitTime * const.DayDuration) -- wait 5 days to depart if no immediate departures
+  	rocket.AT_have_departures = false
+  	-- check for early departures if voyages exist
+  	if g_AT_Options.ATearlyDepartures and rocket.AT_next_voyage_time and (rocket.AT_next_voyage_time <= rocket.AT_departuretime) then
+  		rocket.AT_departuretime = rocket.AT_next_voyage_time
+  	end -- if g_AT_Options.ATearlyDepartures
+  else
+  	rocket.AT_departuretime = rocket.AT_last_arrival_time + (12 * const.HourDuration) -- wait 1/2 day to depart since we got departures
+  	rocket.AT_have_departures = true
+  end -- rocket.AT_departures
+
+  -- add departure time text
+  rocket.AT_departuretimeText = ATGetDateTime(rocket.AT_last_arrival_time, rocket.AT_departuretime)
+
+end -- ATcalcDepartureTime()
+
 
 -- toggle the tourist recall boundary circle
 function ATtoggleTouristBoundary(rocket, state)
@@ -138,7 +147,7 @@ function OnMsg.RocketLanded(rocket)
   		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket")
 
       -- wait 60 seconds to calculate departure time due to landing delay
-      -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it now
+      -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it here
       rocket.AT_departures = 0
       --~ set an on screen message here for arriving tourists
       rocket.AT_arriving_tourists = 0
@@ -258,4 +267,35 @@ function OnMsg.RocketLaunchFromEarth(rocket)
   	if lf_print then print("Launched rocket is not a tourist rocket")	end
   end -- if rocket.AI_enabled
 
-end -- OnMsg.RocketLaunchFromEarth(rocket )
+end -- OnMsg.RocketLaunchFromEarth(rocket)
+
+
+function OnMsg.ClassesGenerate()
+
+  -- re-write OnDemolish to make sure vars, threads and other items are killed
+  local Old_SupplyRocket_OnDemolish = SupplyRocket.OnDemolish
+  function SupplyRocket:OnDemolish()
+  	local rocket = self
+  	ATsetButtonStatus(self, true) -- reset original butons back on
+  	ATsetupVariables(rocket, false) -- clear all AT vars
+  	return Old_SupplyRocket_OnDemolish(self) -- call original function
+  end -- SupplyRocket:OnDemolish()
+
+  -- rewrite old function to exclude tourist rockets from expeditions
+  local Old_SupplyRocket_IsRocketLanded = SupplyRocket.IsRocketLanded
+  function SupplyRocket:IsRocketLanded()
+  	if self.AT_enabled then return false
+  		                 else return Old_SupplyRocket_IsRocketLanded(self) end
+  end -- SupplyRocket:IsRocketLanded()
+
+  -- add tourist rocket status to rockets in send expedition view
+  local Old_GetRocketExpeditionStatus = GetRocketExpeditionStatus
+  function GetRocketExpeditionStatus(rocket)
+    if rocket.AT_enabled then
+      return T(StringIdBase + 115, "Tourist rocket")
+    end
+    return Old_GetRocketExpeditionStatus(rocket)
+  end -- GetRocketExpeditionStatus(rocket)
+
+
+end -- OnMsg.ClassesGenerate()

@@ -52,8 +52,10 @@ local function WaitForModConfig()
 		    	g_AT_Options.ATnoticeDismissTime = ModConfig:Get("Automated_Tourism", "ATnoticeDismissTime") * 1000
 		    end -- if not g_AT_Options.ATdismissMsg
 
-		    g_AT_Options.ATmaxTourists    = ModConfig:Get("Automated_Tourism", "ATmaxTourists")
-        g_AT_Options.ATvoyageWaitTime = ModConfig:Get("Automated_Tourism", "ATvoyageWaitTime")
+		    g_AT_Options.ATmaxTourists     = ModConfig:Get("Automated_Tourism", "ATmaxTourists")
+        g_AT_Options.ATvoyageWaitTime  = ModConfig:Get("Automated_Tourism", "ATvoyageWaitTime")
+        g_AT_Options.ATrecallRadius    = ModConfig:Get("Automated_Tourism", "ATrecallRadius")
+        g_AT_Options.ATearlyDepartures = ModConfig:Get("Automated_Tourism", "ATearlyDepartures")
 
         ModLog(string.format("%s detected ModConfig running - Setup Complete", mod_name))
       else
@@ -132,6 +134,15 @@ function OnMsg.ModConfigReady()
         order = 5,
     })
 
+    -- ATearlyDepartures
+    ModConfig:RegisterOption("Automated_Tourism", "ATearlyDepartures", {
+        name = T{StringIdBase + 62, "Allow early departures:"},
+        desc = T{StringIdBase + 63, "Set departure time to the next voyage time, if voyage is already set."},
+        type = "boolean",
+        default = true,
+        order = 6,
+    })
+
 end -- ModConfigReady
 
 
@@ -181,6 +192,11 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
       		if rockets[i].AT_enabled and not rockets[i].AT_touristBoundary and not IsValid(rockets[i].AT_touristBoundary) then ATtoggleTouristBoundary(rockets[i], true) end
       	end -- for i
       end -- if not value
+    end -- ATvoyageWaitTime
+
+    -- ATearlyDepartures
+  	if option_id == "ATearlyDepartures" then
+      g_AT_Options.ATearlyDepartures = value -- allow early departures
     end -- ATvoyageWaitTime
 
   end -- if g_ModConfigLoaded
