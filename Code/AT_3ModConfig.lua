@@ -10,7 +10,7 @@ local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 50
-local steam_id = "0"
+local steam_id = "1736068322"
 local mod_name = "Automated Tourism"
 local ModConfig_id = "1542863522"
 local ModConfigWaitThread = false

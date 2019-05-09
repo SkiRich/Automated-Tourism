@@ -25,20 +25,15 @@ local ModDir = CurrentModPath
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 
 
--- return sol, hour and minute of futureTime
-function ATGetDateTime(currentTime, futureTime)
-	local UICity = UICity
-	local deltaTime = futureTime - currentTime
-	local sol = deltaTime / const.DayDuration
-	local newsol = UICity.day + sol
-	local hour = deltaTime % const.DayDuration / const.HourDuration
-	local newhour = UICity.hour + hour
-	if newhour >= 24 then
-		newhour = newhour - 24
-		newsol = newsol + 1
-	end -- if newhour
-	return string.format("Sol: %s Time: %02d:%02d", newsol, newhour, UICity.minute)
-end -- ATGetDateTime()
+-- return sol, hour and minute of curreentTime as a string
+-- currentTime   : GameTime var
+function ATConvertDateTime(currentTime)
+	local deltaTime = (currentTime or GameTime()) + (6 * const.HourDuration) + const.DayDuration
+	local sol    = (deltaTime / const.DayDuration)
+	local hour   = ((deltaTime % const.DayDuration) / const.HourDuration)
+	local minute = ((deltaTime % const.DayDuration) % const.HourDuration) / const.MinuteDuration
+	return string.format("Sol: %s Time: %02d:%02d", sol, hour, minute)
+end -- ATConvertDateTime()
 
 
 -- calculate departure time
@@ -54,12 +49,13 @@ local function ATcalcDepartureTime(rocket)
   		rocket.AT_departuretime = rocket.AT_next_voyage_time
   	end -- if g_AT_Options.ATearlyDepartures
   else
-  	rocket.AT_departuretime = rocket.AT_last_arrival_time + (12 * const.HourDuration) -- wait 1/2 day to depart since we got departures
+	  -- if we have departures then reset last arrival time to now so we can recalculate departure time properly
+  	rocket.AT_departuretime = GameTime() + (12 * const.HourDuration) -- wait 1/2 day to depart since we got departures
   	rocket.AT_have_departures = true
   end -- rocket.AT_departures
 
   -- add departure time text
-  rocket.AT_departuretimeText = ATGetDateTime(rocket.AT_last_arrival_time, rocket.AT_departuretime)
+  rocket.AT_departuretimeText = ATConvertDateTime(rocket.AT_departuretime)
 
 end -- ATcalcDepartureTime()
 
@@ -164,28 +160,27 @@ function OnMsg.RocketLanded(rocket)
   			if lf_print then print(string.format("Rocket waiting until %s - No current departures", rocket.AT_departuretimeText)) end
   			rocket.AT_status = "waitdepart"
   		  while (GameTime() < rocket.AT_departuretime) do
-  			  Sleep(10000) -- sleep 10 seconds at a time
+  			  Sleep(2000) -- sleep 2 seconds at a time
   		  end -- while GameTime
   		  -- call tourists to rocket
   		  rocket.departures = nil -- nil out departures to have GenerateDepartures execute
   		  rocket:GenerateDepartures()
-  		  -- wait 60 seconds then reset departure time and have_departures if there are departures
-  		  Sleep(60000)
-  		  -- if we have departures then reset last arrival time to now so we can recalculate departure time properly
-  		  if #rocket.departures > 0 then rocket.AT_last_arrival_time = GameTime() end
+  		  -- wait 2 seconds then reset departure time and have_departures if there are departures
+  		  Sleep(2000)
   		  ATcalcDepartureTime(rocket)
   		end -- if not rocket.AT_have_departures
 
   		if rocket.AT_have_departures then
-  			rocket.AT_status = "waitdepart"
+  			rocket.AT_status = "boarding"
   			-- if we have departures then reset and start countdown
   		  if lf_print then print(string.format("Rocket has %s departures, departing %s", #rocket.departures, rocket.AT_departuretimeText)) end
   		  while (GameTime() < rocket.AT_departuretime) do
-  			  Sleep(10000) -- sleep 10 seconds at a time
+  			  Sleep(2000) -- sleep 2 seconds at a time
   		  end -- while GameTime
   	  end -- if rocket.AT_have_departures
 
   		if lf_print then print("Rocket ready to depart") end
+  		rocket.AT_status = "departing"
   		if rocket.AT_enabled then rocket:ToggleAutoExport() end -- turn on auto launch sequence, check to make sure still a tourist rocket
   	end) -- AT_thread
 
@@ -250,7 +245,7 @@ function OnMsg.RocketLaunchFromEarth(rocket)
       rocket.AT_status = "flyingtourists"
       rocket.AT_last_voyage_time = GameTime()
       rocket.AT_next_voyage_time = rocket.AT_last_voyage_time + (5 * const.DayDuration)
-      rocket.AT_next_voyage_timeText = ATGetDateTime(rocket.AT_last_voyage_time, rocket.AT_next_voyage_time)
+      rocket.AT_next_voyage_timeText = ATConvertDateTime(rocket.AT_next_voyage_time)
 
     else
     	if lf_print and rocket.AT_enabled then print(string.format("Last tourist rocket was %.2f sols ago.  Not sending new tourists.", (GameTime() - rocket.AT_last_voyage_time + 0.00)/const.DayDuration)) end

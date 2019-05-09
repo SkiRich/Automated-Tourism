@@ -1,4 +1,26 @@
 # Automated Tourism
+## v0.09 05/08/2019 3:32:27 AM
+#### Changed
+- ATGetDateTime(currentTime, futureTime) to ATConvertDateTime(currentTime)
+  - also tweaked early arrivals and sleep times
+
+#### Added
+- Boarding departures status
+- Departing tourists status
+
+#### Removed
+
+#### Fixed Issues
+- bad convertion of date and time from gametime.  Needed to account for Sol 1 Hour 06:00
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+- Add tourist location to Command Center
+
+--------------------------------------------------------
 ## v0.08 05/07/2019 4:46:45 AM
 #### Changed
 - Moved rewritten classes to ClassesGenerate()

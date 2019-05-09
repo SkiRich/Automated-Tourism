@@ -123,6 +123,8 @@ local function ATUpdateStatusText(ui_status)
 		flyingempty    = T{StringIdBase + 153, "Flying back empty"},
 		landed         = T{StringIdBase + 154, "Landed"},
 		waitdepart     = T{StringIdBase + 155, "Waiting to depart"},
+		boarding       = T{StringIdBase + 156, "Boarding departures"},
+		departing      = T{StringIdBase + 157, "Departing"},
 	}
 	return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
