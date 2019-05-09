@@ -1,4 +1,16 @@
 # Automated Tourism
+## v0.10 05/09/2019 12:50:03 AM
+#### Changed
+- various places for flashing status
+- AT_thread to AT_depatures_thread
+
+#### Added
+- ATflashStatus(rocket, status1, status2, enable)
+- checkdepart status
+- check to see if we left anyone behind (on rocket launch)
+- AT_status_thread
+
+--------------------------------------------------------
 ## v0.09 05/08/2019 3:32:27 AM
 #### Changed
 - ATGetDateTime(currentTime, futureTime) to ATConvertDateTime(currentTime)

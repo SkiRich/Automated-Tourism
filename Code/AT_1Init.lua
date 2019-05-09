@@ -6,7 +6,7 @@
 -- Updated May 5th, 2019
 
 
-local lf_print = false -- Setup debug printing in local file
+local lf_print = true -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
 -- global variable to contain AT options
@@ -99,6 +99,8 @@ function OnMsg.RocketLaunched(rocket)
      -- turn off tourist recall boundary
     ATtoggleTouristBoundary(rocket, false)
     rocket.AT_departuretimeText = ""
+    -- recalc departures in case we depart and leave someone behind
+  	if rocket.departures and #rocket.departures > 0 then rocket.AT_departures = rocket.AT_departures - #rocket.departures end
 
     -- notification of rocket launch
     local msg = T{StringIdBase + 2, "Departures: <count>", count = rocket.AT_departures}
@@ -135,10 +137,10 @@ function OnMsg.RocketLanded(rocket)
     PlayFX("UINotificationResearchComplete", rocket)
 
     -- if a thread is already running then delete it (should never happen)
-  	if IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end
+  	if IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end
 
   	-- create thread to wait before launch up to 5 days if no tourists departing
-  	rocket.AT_thread = CreateGameTimeThread(function()
+  	rocket.AT_depart_thread = CreateGameTimeThread(function()
   		if rocket.auto_export then rocket:ToggleAutoExport() end -- turn off auto launch sequence
   		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket")
 
@@ -163,14 +165,17 @@ function OnMsg.RocketLanded(rocket)
   			  Sleep(2000) -- sleep 2 seconds at a time
   		  end -- while GameTime
   		  -- call tourists to rocket
+  		  ATflashStatus(rocket, "checkdepart", "waitdepart", true)
   		  rocket.departures = nil -- nil out departures to have GenerateDepartures execute
   		  rocket:GenerateDepartures()
-  		  -- wait 2 seconds then reset departure time and have_departures if there are departures
-  		  Sleep(2000)
+  		  -- wait 3 seconds then reset departure time and have_departures if there are departures
+  		  if lf_print then print("Sleeping 3 seconds") end
+  		  Sleep(3000)
   		  ATcalcDepartureTime(rocket)
   		end -- if not rocket.AT_have_departures
 
   		if rocket.AT_have_departures then
+  			ATflashStatus(rocket) -- kill status thread if it exists
   			rocket.AT_status = "boarding"
   			-- if we have departures then reset and start countdown
   		  if lf_print then print(string.format("Rocket has %s departures, departing %s", #rocket.departures, rocket.AT_departuretimeText)) end
@@ -180,9 +185,11 @@ function OnMsg.RocketLanded(rocket)
   	  end -- if rocket.AT_have_departures
 
   		if lf_print then print("Rocket ready to depart") end
+
+  		ATflashStatus(rocket) -- kill status thread if it exists (possible set in oncontextupdate if tourists did board)
   		rocket.AT_status = "departing"
   		if rocket.AT_enabled then rocket:ToggleAutoExport() end -- turn on auto launch sequence, check to make sure still a tourist rocket
-  	end) -- AT_thread
+  	end) -- AT_depart_thread
 
   end -- if AT_enabled
 

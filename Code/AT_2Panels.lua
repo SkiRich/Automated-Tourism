@@ -6,7 +6,7 @@
 -- Updated May 5th, 2019
 
 
-local lf_print = false -- Setup debug printing in local file
+local lf_print = true -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
 g_ATLoaded = true
@@ -33,7 +33,8 @@ local function ATsetupVariables(rocket, init)
 		rocket.AT_next_voyage_time     = 0      -- gametime var holds next voyage from earth
 		rocket.AT_next_voyage_timeText = ""     -- text representation of gametime var
 		rocket.AT_status               = false  -- text var holds current status message
-		rocket.AT_thread               = false  -- var holds countdown thread for departures
+		rocket.AT_depart_thread        = false  -- var holds countdown thread for departures
+		rocket.AT_status_thread        = false  -- var holds status thread if it exists for boarding complete
 	else
 	  rocket.AT_enabled              = nil
 		rocket.AT_departures           = nil
@@ -48,8 +49,10 @@ local function ATsetupVariables(rocket, init)
 		rocket.AT_next_voyage_time     = nil
 		rocket.AT_next_voyage_timeText = nil
 		rocket.AT_status               = nil
-		if rocket.AT_thread and IsValidThread(rocket.AT_thread) then DeleteThread(rocket.AT_thread) end -- kill the departure thread if its running
-		rocket.AT_thread               = nil
+		if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
+		rocket.AT_depart_thread        = nil
+		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill the status thread if its running
+		rocket.AT_status_thread        = nil
 		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
 	end -- if init
 end -- ATsetupvariables(state)
@@ -124,11 +127,37 @@ local function ATUpdateStatusText(ui_status)
 		landed         = T{StringIdBase + 154, "Landed"},
 		waitdepart     = T{StringIdBase + 155, "Waiting to depart"},
 		boarding       = T{StringIdBase + 156, "Boarding departures"},
-		departing      = T{StringIdBase + 157, "Departing"},
+		boardcomplete  = T{StringIdBase + 157, "Boarding complete"},
+		departing      = T{StringIdBase + 158, "Departing"},
+		checkdepart    = T{StringIdBase + 159, "Checking for departures"},
 	}
 	return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
 
+-- flash status based on two status, use enable to kill
+function ATflashStatus(rocket, status1, status2, enable)
+	rocket.AT_status = false
+	-- delete thread and exit if not enabled
+	if not enable and rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then
+		DeleteThread(rocket.AT_status_thread)
+		rocket.AT_status_thread = false
+		return
+	end -- kill the status thread if its running
+	if enable and rocket and status1 and status2 then
+		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill thread if still running (should not happen)
+		local threadlimit = 500 -- prevent runaway threads
+		rocket.AT_status_thread = CreateGameTimeThread(function(rocket, stat1, stat2)
+			if lf_print then print(string.format("Status thread started.  Status1: %s,  Status2: %s", stat1, stat2)) end
+      while IsValid(rocket) and threadlimit > 0 do
+        rocket.AT_status = stat1
+        Sleep(1000) -- wait 1 seconds
+        rocket.AT_status = stat2
+        Sleep(1000) -- wait 1 seconds
+        threadlimit = threadlimit - 1
+      end -- while
+		end, rocket, status1, status2) -- AT_status_thread
+	end -- if all vars
+end -- ATflashStatus(rocket, status1, status2)
 
 -- calculate funding from tourism, return string
 local function ATcalcTourismDollars()
@@ -151,6 +180,7 @@ local function ATcalcTourismDollars()
 end -- ATcalcTourismDollars()
 
 
+
 ----------------------- OnMsg -------------------------------------------------------------------------------
 
 
@@ -160,7 +190,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.1"
+  local ATControlVer = "v1.2"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -209,7 +239,10 @@ function OnMsg.ClassesBuilt()
         	self:SetEnabled(true)
         end -- if auto exporting
 
-        -- toggle tourism
+        -- begin flash sequence for status
+        if rocket.AT_status == "boarding" and rocket.departures and #rocket.departures == 0 then ATflashStatus(rocket, "boardcomplete", "waitdepart", true) end
+
+        -- toggle tourism button status
         if rocket.AT_enabled then
         	ATsetButtonStatus(self, false) -- set original buttons to disabled
         	self:SetIcon(iconATButtonOn)
