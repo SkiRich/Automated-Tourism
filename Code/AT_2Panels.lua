@@ -6,7 +6,7 @@
 -- Updated May 5th, 2019
 
 
-local lf_print = true -- Setup debug printing in local file
+local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
 g_ATLoaded = true
@@ -190,7 +190,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.2"
+  local ATControlVer = "v1.3"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -222,7 +222,7 @@ function OnMsg.ClassesBuilt()
     	"UniqueID", ATButtonID1,
     	"Id", "idATbutton",
       "__context_of_kind", "SupplyRocket",
-      "__condition", function (parent, context) return g_ATLoaded and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+      "__condition", function (parent, context) return g_ATLoaded and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"}, -- Title Used for sections only
@@ -292,7 +292,7 @@ function OnMsg.ClassesBuilt()
       	"Version", ATControlVer,
       	"Id", "idATSection",
         "__context_of_kind", "SupplyRocket",
-        "__condition", function (parent, context) return g_ATLoaded and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed)end,
+        "__condition", function (parent, context) return g_ATLoaded and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
         "__template", "InfopanelSection",
         "Icon", iconATSection,
         "Title", T{StringIdBase + 105, "Tourist Rocket Status"},

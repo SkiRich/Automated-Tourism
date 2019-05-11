@@ -52,7 +52,7 @@ local function WaitForModConfig()
 		    	g_AT_Options.ATnoticeDismissTime = ModConfig:Get("Automated_Tourism", "ATnoticeDismissTime") * 1000
 		    end -- if not g_AT_Options.ATdismissMsg
 
-		    g_AT_Options.ATmaxTourists     = ModConfig:Get("Automated_Tourism", "ATmaxTourists")
+		    g_AT_Options.ATMaxTourists     = ModConfig:Get("Automated_Tourism", "ATMaxTourists")
         g_AT_Options.ATvoyageWaitTime  = ModConfig:Get("Automated_Tourism", "ATvoyageWaitTime")
         g_AT_Options.ATrecallRadius    = ModConfig:Get("Automated_Tourism", "ATrecallRadius")
         g_AT_Options.ATearlyDepartures = ModConfig:Get("Automated_Tourism", "ATearlyDepartures")
@@ -101,8 +101,8 @@ function OnMsg.ModConfigReady()
         order = 2
     })
 
-    -- ATmaxTourists
-    ModConfig:RegisterOption("Automated_Tourism", "ATmaxTourists", {
+    -- ATMaxTourists
+    ModConfig:RegisterOption("Automated_Tourism", "ATMaxTourists", {
         name = T{StringIdBase + 56, "Maximum tourists per rocket:"},
         desc = T{StringIdBase + 57, "The maximum number of tourists a rocket can load (if rocket capacity allows)"},
         type = "number",
@@ -166,10 +166,10 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
       g_AT_Options.ATnoticeDismissTime = value * 1000 -- in msecs
     end -- ATPdismissMsg
 
-  	-- ATmaxTourists
-  	if option_id == "ATmaxTourists" then
-      g_AT_Options.ATmaxTourists = value -- maximum number of tourists per rocket
-    end -- ATmaxTourists
+  	-- ATMaxTourists
+  	if option_id == "ATMaxTourists" then
+      g_AT_Options.ATMaxTourists = value -- maximum number of tourists per rocket
+    end -- ATMaxTourists
 
   	-- ATvoyageWaitTime
   	if option_id == "ATvoyageWaitTime" then

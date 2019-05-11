@@ -1,4 +1,13 @@
 # Automated Tourism
+## v1.0 Release 05/09/2019 8:32:43 PM
+#### Changed
+- Added condition to button and section to check what type of rocket it is.
+- Bad var ATMaxTourists was mispelled
+#### Fixed Issues
+- tourism button and section showing up on trade and expedition rockets.
+- Max colonists not being used due to spelling mistake in modconfig options
+
+--------------------------------------------------------
 ## v0.10 05/09/2019 12:50:03 AM
 #### Changed
 - various places for flashing status

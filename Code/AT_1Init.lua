@@ -6,7 +6,7 @@
 -- Updated May 5th, 2019
 
 
-local lf_print = true -- Setup debug printing in local file
+local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
 -- global variable to contain AT options
