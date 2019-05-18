@@ -278,8 +278,10 @@ function OnMsg.ClassesGenerate()
   local Old_SupplyRocket_OnDemolish = SupplyRocket.OnDemolish
   function SupplyRocket:OnDemolish()
   	local rocket = self
-  	ATsetButtonStatus(self, true) -- reset original butons back on
-  	ATsetupVariables(rocket, false) -- clear all AT vars
+  	if not IsKindOfClasses(rocket, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "ArkPod", "DropPod") then
+  	  ATsetButtonStatus(rocket, true) -- reset original buttons back on
+  	  ATsetupVariables(rocket, false) -- clear all AT vars
+  	end --if not IsKindOfClasses
   	return Old_SupplyRocket_OnDemolish(self) -- call original function
   end -- SupplyRocket:OnDemolish()
 
