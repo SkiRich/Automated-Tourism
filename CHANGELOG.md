@@ -1,4 +1,15 @@
 # Automated Tourism
+## v1.0.1 05/18/2019 4:03:22 AM
+#### Changed
+- SupplyRocket:OnDemolish() added check for class type
+- Added class types of ArkPod and DropPod instead of SupplyPod
+- made ATsetupVariables() and ATsetButtonStatus() global
+- Control verion is 1.4
+
+#### Fixed Issues
+- AT showing up in supply pods and supply pods where not able to be demolished.
+
+--------------------------------------------------------
 ## v1.0 Release 05/09/2019 8:32:43 PM
 #### Changed
 - Added condition to button and section to check what type of rocket it is.

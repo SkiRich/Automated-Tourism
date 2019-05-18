@@ -19,7 +19,7 @@ local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
 local iconATSection     = ModDir.."UI/Icons/ATSection.png"
 
 --  setup or tear down all the AT variables in a rocket
-local function ATsetupVariables(rocket, init)
+function ATsetupVariables(rocket, init)
 	if init then
 		rocket.AT_enabled              = true  -- var used to turn system on/off
 		rocket.AT_departures           = 0      -- number of tourists returning to earth
@@ -58,7 +58,7 @@ local function ATsetupVariables(rocket, init)
 end -- ATsetupvariables(state)
 
 -- set the status of the button and show/hide status section
-local function ATsetButtonStatus(ref, state)
+function ATsetButtonStatus(ref, state)
 	if type(ref) ~= "table" then return end -- short circuit if ref (self) is not built yet
 
 	local ATSection      = ref.parent.parent.parent.parent.parent.idATSection
@@ -190,7 +190,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.3"
+  local ATControlVer = "v1.4"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -222,7 +222,7 @@ function OnMsg.ClassesBuilt()
     	"UniqueID", ATButtonID1,
     	"Id", "idATbutton",
       "__context_of_kind", "SupplyRocket",
-      "__condition", function (parent, context) return g_ATLoaded and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+      "__condition", function (parent, context) return g_ATLoaded and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"}, -- Title Used for sections only
@@ -292,7 +292,7 @@ function OnMsg.ClassesBuilt()
       	"Version", ATControlVer,
       	"Id", "idATSection",
         "__context_of_kind", "SupplyRocket",
-        "__condition", function (parent, context) return g_ATLoaded and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+        "__condition", function (parent, context) return g_ATLoaded and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
         "__template", "InfopanelSection",
         "Icon", iconATSection,
         "Title", T{StringIdBase + 105, "Tourist Rocket Status"},
