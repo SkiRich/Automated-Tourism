@@ -19,6 +19,9 @@ g_AT_Options = {
 	ATearlyDepartures   = true,      -- allow for earlier departures when voyages waiting
 } -- g_AT_Options
 
+-- Save game fixup variables
+g_AT_fixupVer = "v1.0"
+GlobalVar("g_AT_currentFixupVer", "0")
 
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 300-349:  Next is 7
 local ModDir = CurrentModPath
@@ -78,7 +81,44 @@ function ATtoggleTouristBoundary(rocket, state)
 		end -- if rocket.AT_touristBoundary
 end -- ATtoggleTouristBoundary(rocket, state)
 
+--[[
+-- not used at this time. using ReturnStockpiledResources()
+-- force the unloading of resources on departure so we dont wait for unload if storage is full
+function ATunloadResources(rocket)
+	local storedResources = {}
+	local resources = rocket.resource or empty_table
+	for i = 1, #resources do
+		storedResources[(resources[i])] = rocket["GetStored_"..(resources[i])](rocket)
+	end -- for i
+	--ex(storedResources)
+end -- ATunloadResources()
+]]--
+
+
+-- function that fixes various save game issues.
+local function ATfixupSaves()
+	-- if we got things to fix update the ver
+	if g_AT_currentFixupVer ~= g_AT_fixupVer then
+		g_AT_currentFixupVer = g_AT_fixupVer
+
+		-- fix for stuck rockets waiting to unload cargo
+		-- do this once and never again since its fixed going forward in templates
+		local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+		for i = 1, #rockets do
+			if rockets[i].AT_enabled and (rockets[i].status == "launch suspended") and (rockets[i]:GetStoredAmount() > 0) then
+				rockets[i]:ToggleAutoExport()
+				rockets[i]:ReturnStockpiledResources()
+				rockets[i]:ToggleAutoExport()
+		  end -- if rockets[i].AT_enabled
+		end -- for i
+	end -- if g_AT_currentFixupVer
+end -- ATfixupSave()
+
 --------------------------------------------------------- OnMsgs --------------------------------------------------------
+
+function OnMsg.LoadGame()
+	ATfixupSaves()
+end -- OnMsg.LoadGame()
 
 
 function OnMsg.RocketReachedEarth(rocket)
@@ -188,6 +228,7 @@ function OnMsg.RocketLanded(rocket)
 
   		ATflashStatus(rocket) -- kill status thread if it exists (possible set in oncontextupdate if tourists did board)
   		rocket.AT_status = "departing"
+  		rocket:ReturnStockpiledResources() -- dump any resources on landing pad so we can launch
   		if rocket.AT_enabled then rocket:ToggleAutoExport() end -- turn on auto launch sequence, check to make sure still a tourist rocket
   	end) -- AT_depart_thread
 

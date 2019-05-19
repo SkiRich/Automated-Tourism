@@ -190,7 +190,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.4"
+  local ATControlVer = "v1.5"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -266,7 +266,10 @@ function OnMsg.ClassesBuilt()
         	else
         		rocket.AT_status = "flytoearth"
         	end -- if ATcountTouristsOnEarth()
-        	if not rocket.auto_export then rocket:ToggleAutoExport() end
+        	if not rocket.auto_export then
+        		rocket:ToggleAutoExport()
+        		rocket:ReturnStockpiledResources() -- dump any resources on landing pad so we can launch
+        	end -- if not rocket.auto_export
         else
         	rocket.AT_enabled = false
         	self:SetIcon(iconATButtonOff)
