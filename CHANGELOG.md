@@ -1,4 +1,26 @@
 # Automated Tourism
+## v1.1 05/19/2019 3:25:39 PM
+#### Changed
+- OnMsg.RocketLanded(rocket) - added ReturnStockpiledResources
+- changed template to return stockpiled stuuf on toggle.
+- Template version to v1.5
+
+#### Added
+- ReturnStockpiledResources() to departure code to make sure we can launch.
+- local function ATfixupSaves()
+
+#### Removed
+
+#### Fixed Issues
+- rockets waiting to unload resources
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.0.1 05/18/2019 4:03:22 AM
 #### Changed
 - SupplyRocket:OnDemolish() added check for class type
