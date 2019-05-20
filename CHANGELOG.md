@@ -1,4 +1,14 @@
 # Automated Tourism
+## v1.1.1 05/20/2019 4:26:25 AM
+#### Changed
+
+#### Added
+- Added SupplyPod to clas lookup to fix legacy games.
+
+#### Fixed Issues
+- legacy saves use SupplyPod and where still undemolishable.
+
+--------------------------------------------------------
 ## v1.1 05/19/2019 3:25:39 PM
 #### Changed
 - OnMsg.RocketLanded(rocket) - added ReturnStockpiledResources
@@ -9,16 +19,8 @@
 - ReturnStockpiledResources() to departure code to make sure we can launch.
 - local function ATfixupSaves()
 
-#### Removed
-
 #### Fixed Issues
 - rockets waiting to unload resources
-
-#### Open Issues
-
-#### Deprecated
-
-#### Todo
 
 --------------------------------------------------------
 ## v1.0.1 05/18/2019 4:03:22 AM
