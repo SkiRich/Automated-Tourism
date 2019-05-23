@@ -1,4 +1,12 @@
 # Automated Tourism
+## v1.1.2 05/22/2019 11:00:14 PM
+#### Changed
+- SupplyRocket:OnDemolish() - removed call to function ATsetButtonStatus since we are in the process of demolishing, this has already been done.
+
+#### Fixed Issues
+- Rockets were not demolishing
+
+--------------------------------------------------------
 ## v1.1.1 05/20/2019 4:26:25 AM
 #### Changed
 
