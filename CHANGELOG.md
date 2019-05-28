@@ -6,6 +6,7 @@
 
 #### Added
 - code to strip applicants of specializations
+- addede modconfig options for ATstripSpecialty
 
 #### Removed
 
