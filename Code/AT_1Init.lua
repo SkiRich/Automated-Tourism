@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 22nd, 2019
+-- Updated May 29th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -275,6 +275,15 @@ function OnMsg.RocketLaunchFromEarth(rocket)
       local cargo = {}
 
       if #tourists > 0 then
+      	-- remove specializations from tourists
+      	for i = 1, #tourists do
+      		if tourists[i].specialist ~= "none" then
+      			tourists[i].traits[tourists[i].specialist] = nil
+      			tourists[i].specialist = "none"
+      			tourists[i].traits.none = true
+      		end -- if tourists[i]
+      	end -- for i
+
         cargo[1] = {
           class = "Passengers",
           amount = count,

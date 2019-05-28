@@ -1,4 +1,24 @@
 # Automated Tourism
+## v1.2.0 05/28/2019 1:46:26 AM
+#### Changed
+- OnMsg.RocketLaunchFromEarth(rocket) - strip specializations
+- ATsetupVariables(rocket, init)  - leave departures.
+
+#### Added
+- code to strip applicants of specializations
+
+#### Removed
+
+#### Fixed Issues
+- tourist colonists arive ewith specialities throwing off specialist counts.
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.1.2 05/22/2019 11:00:14 PM
 #### Changed
 - SupplyRocket:OnDemolish() - removed call to function ATsetButtonStatus since we are in the process of demolishing, this has already been done.

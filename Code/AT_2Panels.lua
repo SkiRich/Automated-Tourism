@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 20th, 2019
+-- Updated May 29th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -22,7 +22,7 @@ local iconATSection     = ModDir.."UI/Icons/ATSection.png"
 function ATsetupVariables(rocket, init)
 	if init then
 		rocket.AT_enabled              = true  -- var used to turn system on/off
-		rocket.AT_departures           = 0      -- number of tourists returning to earth
+		rocket.AT_departures           = rocket.AT_departures or 0      -- number of tourists returning to earth, keep departures if cycling button on/off
 		rocket.AT_arriving_tourists    = 0      -- number of tourists picked up from earth
 		rocket.AT_departuretime        = 0      -- gametime var for departure time
 		rocket.AT_have_departures      = false  -- bool var to signify we got departures onnboard
@@ -37,7 +37,7 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_status_thread        = false  -- var holds status thread if it exists for boarding complete
 	else
 	  rocket.AT_enabled              = nil
-		rocket.AT_departures           = nil
+		--rocket.AT_departures           = nil -- remmed, keep departures if cycling on/off
 		rocket.AT_arriving_tourists    = nil
 		rocket.AT_departuretime        = nil
 		rocket.AT_have_departures      = nil
