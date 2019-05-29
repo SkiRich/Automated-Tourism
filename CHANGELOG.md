@@ -3,21 +3,18 @@
 #### Changed
 - OnMsg.RocketLaunchFromEarth(rocket) - strip specializations
 - ATsetupVariables(rocket, init)  - leave departures.
+- changed function function ATfindReferences(objStartPt, objType, tId)
+  - now uses ATfindReferences() inistead of indexes
+- new control version v1.7
 
 #### Added
 - code to strip applicants of specializations
-- addede modconfig options for ATstripSpecialty
-
-#### Removed
+- added modconfig options for ATstripSpecialty
+- added function ATfindReferences(objStartPt, objType, tId)
+  - searches for corresponding obj in templates instead of assuming index
 
 #### Fixed Issues
-- tourist colonists arive ewith specialities throwing off specialist counts.
-
-#### Open Issues
-
-#### Deprecated
-
-#### Todo
+- tourist colonists were arriving with specialities throwing off specialist counts.
 
 --------------------------------------------------------
 ## v1.1.2 05/22/2019 11:00:14 PM

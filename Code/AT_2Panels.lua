@@ -57,34 +57,70 @@ function ATsetupVariables(rocket, init)
 	end -- if init
 end -- ATsetupvariables(state)
 
+
+-- search for the reference points using TID, return false if not found
+-- objStartPt  : the starting point
+-- tId         : the id reference to find
+local function ATfindReferences(objStartPt, objType, tId)
+	if type(objStartPt) ~= "table" then
+		ModLog("ERROR: Automated Tourism could not find reference start point.")
+		return false
+	end -- if type(objStartPt)
+
+  if objType == "section" then
+    for i = 1, #objStartPt do
+    	if TGetID(objStartPt[i].idSectionTitle.Text) == tId then return objStartPt[i] end
+    end -- for i
+  end -- if objType == "section"
+
+  if objType == "button" then
+    for i = 1, #objStartPt do
+    	if TGetID(objStartPt[i].RolloverTitle) == tId then return objStartPt[i] end
+    end -- for i
+  end -- if objType == "button"
+
+  if lf_print then ModLog(string.format("ERROR: Automated Tourism could not find reference TGetID: %s", tId)) end
+  return false
+end -- ATfindReferences()
+
+
 -- set the status of the button and show/hide status section
 function ATsetButtonStatus(ref, state)
 	if type(ref) ~= "table" then return end -- short circuit if ref (self) is not built yet
 
-	local ATSection      = ref.parent.parent.parent.parent.parent.idATSection
-	local ServiceArea    = ref.parent.parent.parent.parent.parent.idContent[2]
-	local DroneArea      = ref.parent.parent.parent.parent.parent.idContent[3]
-	local BasicResources = ref.parent.parent.parent.parent.parent.idContent[6]
-	local AdvResources   = ref.parent.parent.parent.parent.parent.idContent[7]
+  local InfopanelDlg = ref.parent.parent.parent.parent.parent
+
+  local tsections = {
+	  serviceArea    = ATfindReferences(InfopanelDlg.idContent, "section", 994862568830), -- idContent[2]
+	  droneArea      = ATfindReferences(InfopanelDlg.idContent, "section", 963695586350), -- idContent[3]
+	  basicResources = ATfindReferences(InfopanelDlg.idContent, "section", 494),          -- idContent[6]
+	  advResources   = ATfindReferences(InfopanelDlg.idContent, "section", 500) ,         -- idContent[7]
+	  otherResources = ATfindReferences(InfopanelDlg.idContent, "section", 12018),        -- idContent[8]
+  } -- tsections
 
 	local tbuttons = {
-	 launchButton     = ref.parent[1],
-	 rareExportButton = ref.parent[3],
-	 expeditionButton = ref.parent[4],
-	 salvageButton    = ref.parent[6],
+	 launchButton     = ATfindReferences(ref.parent, "button", 526598507877), -- ref.parent[1],
+	 rareExportButton = ATfindReferences(ref.parent, "button", 8040),         -- ref.parent[3],
+	 expeditionButton = ATfindReferences(ref.parent, "button", 949636784531), -- ref.parent[4],
+	 salvageButton    = ATfindReferences(ref.parent, "button", 3973),         -- ref.parent[6],
 	} -- tbuttons
 
+  -- enable/disable buttons
   for item, button in pairs(tbuttons) do
-  	button:SetEnabled(state)
+  	if button then button:SetEnabled(state) end
   end -- for button
 
+  -- enable/disable AT section
+	local ATSection = InfopanelDlg.idATSection -- Automated Tourism section
   ATSection:SetVisible(not state)
-  ServiceArea:SetVisible(state)
-  DroneArea:SetVisible(state)
-  BasicResources:SetVisible(state)
-  AdvResources:SetVisible(state)
+
+  -- enable/disable sections
+  for item, section in pairs(tsections) do
+  	if section then section:SetVisible(state) end
+  end -- for item
 
 end -- ATsetButtonStatus(rocket)
+
 
 -- returns the number of tourists waiting on earth
 local function ATcountTouristsOnEarth()
@@ -190,7 +226,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.6"
+  local ATControlVer = "v1.7"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -232,7 +268,7 @@ function OnMsg.ClassesBuilt()
       "OnContextUpdate", function(self, context)
       	local rocket = context
 
-        -- enable or disable button based on exports
+        -- enable or disable AT button based on exports
         if rocket.allow_export then
         	self:SetEnabled(false)
         else
@@ -277,7 +313,6 @@ function OnMsg.ClassesBuilt()
         	ATsetupVariables(rocket, false)
         end -- if not rocket.AT_enabled
 
-        --if not rocket.allow_export then rocket.AT_enabled = not rocket.AT_enabled end
      	  ObjModified(self)
       end -- OnPress
     }) -- End PlaceObject
