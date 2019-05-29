@@ -1,4 +1,22 @@
 # Automated Tourism
+## v1.2.0 05/28/2019 1:46:26 AM
+#### Changed
+- OnMsg.RocketLaunchFromEarth(rocket) - strip specializations
+- ATsetupVariables(rocket, init)  - leave departures.
+- changed function function ATfindReferences(objStartPt, objType, tId)
+  - now uses ATfindReferences() inistead of indexes
+- new control version v1.7
+
+#### Added
+- code to strip applicants of specializations
+- added modconfig options for ATstripSpecialty
+- added function ATfindReferences(objStartPt, objType, tId)
+  - searches for corresponding obj in templates instead of assuming index
+
+#### Fixed Issues
+- tourist colonists were arriving with specialities throwing off specialist counts.
+
+--------------------------------------------------------
 ## v1.1.2 05/22/2019 11:00:14 PM
 #### Changed
 - SupplyRocket:OnDemolish() - removed call to function ATsetButtonStatus since we are in the process of demolishing, this has already been done.

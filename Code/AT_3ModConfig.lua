@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 5th, 2019
+-- Updated May 29th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -56,6 +56,7 @@ local function WaitForModConfig()
         g_AT_Options.ATvoyageWaitTime  = ModConfig:Get("Automated_Tourism", "ATvoyageWaitTime")
         g_AT_Options.ATrecallRadius    = ModConfig:Get("Automated_Tourism", "ATrecallRadius")
         g_AT_Options.ATearlyDepartures = ModConfig:Get("Automated_Tourism", "ATearlyDepartures")
+        g_AT_Options.ATstripSpecialty  = ModConfig:Get("Automated_Tourism", "ATstripSpecialty")
 
         ModLog(string.format("%s detected ModConfig running - Setup Complete", mod_name))
       else
@@ -143,6 +144,15 @@ function OnMsg.ModConfigReady()
         order = 6,
     })
 
+    -- g_AT_Options.ATstripSpecialty
+    ModConfig:RegisterOption("Automated_Tourism", "ATstripSpecialty", {
+        name = T{StringIdBase + 64, "Strip tourist specialization:"},
+        desc = T{StringIdBase + 65, "Remove any specialities for arriving tourists since they dont work anyway."},
+        type = "boolean",
+        default = true,
+        order = 7,
+    })
+
 end -- ModConfigReady
 
 
@@ -197,6 +207,11 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
     -- ATearlyDepartures
   	if option_id == "ATearlyDepartures" then
       g_AT_Options.ATearlyDepartures = value -- allow early departures
+    end -- ATvoyageWaitTime
+
+    -- g_AT_Options.ATstripSpecialty
+  	if option_id == "ATstripSpecialty" then
+      g_AT_Options.ATstripSpecialty = value -- strip specialties
     end -- ATvoyageWaitTime
 
   end -- if g_ModConfigLoaded
