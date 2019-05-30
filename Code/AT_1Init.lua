@@ -18,16 +18,29 @@ g_AT_Options = {
 	ATrecallRadius      = true,      -- display recall radius on landed rocket
 	ATearlyDepartures   = true,      -- allow for earlier departures when voyages waiting
 	ATstripSpecialty    = true,      -- strip a tourists specialty upon arrival
+	ATpreventDepart     = true,      -- prevents colonists from using non AT rockets to depart
 } -- g_AT_Options
 
 -- Save game fixup variables
 g_AT_fixupVer = "v1.0"
 GlobalVar("g_AT_currentFixupVer", "0")
 
+g_AT_NumOfTouristRockets = 0       -- keeps track of the number of tourist rockets
+
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 300-349:  Next is 7
 local ModDir = CurrentModPath
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 
+
+-- count the numbere of AT rockets in play
+local function ATcountATrockets()
+	local ATcount = 0
+	local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+	for i = 1, #rockets do
+		if rockets[i].AT_enabled then ATcount = ATcount + 1 end
+	end -- for i
+	return ATcount
+end -- ATcountATrockets()
 
 -- return sol, hour and minute of curreentTime as a string
 -- currentTime   : GameTime var
@@ -119,6 +132,7 @@ end -- ATfixupSave()
 
 function OnMsg.LoadGame()
 	ATfixupSaves()
+	g_AT_NumOfTouristRockets = ATcountATrockets()
 end -- OnMsg.LoadGame()
 
 
@@ -338,12 +352,14 @@ function OnMsg.ClassesGenerate()
   	return Old_SupplyRocket_OnDemolish(self) -- call original function
   end -- SupplyRocket:OnDemolish()
 
+
   -- rewrite old function to exclude tourist rockets from expeditions
   local Old_SupplyRocket_IsRocketLanded = SupplyRocket.IsRocketLanded
   function SupplyRocket:IsRocketLanded()
   	if self.AT_enabled then return false
   		                 else return Old_SupplyRocket_IsRocketLanded(self) end
   end -- SupplyRocket:IsRocketLanded()
+
 
   -- add tourist rocket status to rockets in send expedition view
   local Old_GetRocketExpeditionStatus = GetRocketExpeditionStatus
@@ -354,5 +370,14 @@ function OnMsg.ClassesGenerate()
     return Old_GetRocketExpeditionStatus(rocket)
   end -- GetRocketExpeditionStatus(rocket)
 
+
+  -- re-write generate departures to exclude non AT rockets
+  local Old_SupplyRocket_GenerateDepartures = SupplyRocket.GenerateDepartures
+  function SupplyRocket:GenerateDepartures()
+  	-- if rocket is an AT rocket or ATpreventDepart is false
+  	if self.AT_enabled or (not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1) then
+  	  return Old_SupplyRocket_GenerateDepartures(self)
+  	end -- if ATpreventDepart
+  end -- SupplyRocket:GenerateDepartures()
 
 end -- OnMsg.ClassesGenerate()

@@ -9,7 +9,7 @@
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 50
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 68
 local steam_id = "1736068322"
 local mod_name = "Automated Tourism"
 local ModConfig_id = "1542863522"
@@ -57,6 +57,7 @@ local function WaitForModConfig()
         g_AT_Options.ATrecallRadius    = ModConfig:Get("Automated_Tourism", "ATrecallRadius")
         g_AT_Options.ATearlyDepartures = ModConfig:Get("Automated_Tourism", "ATearlyDepartures")
         g_AT_Options.ATstripSpecialty  = ModConfig:Get("Automated_Tourism", "ATstripSpecialty")
+        g_AT_Options.ATpreventDepart   = ModConfig:Get("Automated_Tourism", "ATpreventDepart")
 
         ModLog(string.format("%s detected ModConfig running - Setup Complete", mod_name))
       else
@@ -153,6 +154,15 @@ function OnMsg.ModConfigReady()
         order = 7,
     })
 
+    -- g_AT_Options.ATpreventDepart
+    ModConfig:RegisterOption("Automated_Tourism", "ATpreventDepart", {
+        name = T{StringIdBase + 66, "Prevent departures on non tourist rockets:"},
+        desc = T{StringIdBase + 67, "Prevents tourists from leaving Mars on non tourist rockets when at least one Tourist Rocket is running."},
+        type = "boolean",
+        default = true,
+        order = 8,
+    })
+
 end -- ModConfigReady
 
 
@@ -212,6 +222,11 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
     -- g_AT_Options.ATstripSpecialty
   	if option_id == "ATstripSpecialty" then
       g_AT_Options.ATstripSpecialty = value -- strip specialties
+    end -- ATvoyageWaitTime
+
+    --g_AT_Options.ATpreventDepart
+  	if option_id == "ATpreventDepart" then
+      g_AT_Options.ATpreventDepart = value -- strip specialties
     end -- ATvoyageWaitTime
 
   end -- if g_ModConfigLoaded

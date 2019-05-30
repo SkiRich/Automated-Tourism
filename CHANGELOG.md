@@ -1,4 +1,31 @@
 # Automated Tourism
+## v1.3.0 05/29/2019 7:47:56 PM
+#### Changed
+- OnMsg.LoadGame()
+  - added code to calc g_AT_NumOfTouristRockets
+- function ATsetupVariables(rocket, init)
+  - added g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets + 1 (and the reverse when false)
+
+#### Added
+- ATpreventDepart = true to g_AT_Options
+- g_AT_NumOfTouristRockets to keep track of rockets
+- function ATcountATrockets()
+  - counts the number of AT rockets in game
+- re-write for function SupplyRocket:GenerateDepartures()
+- new mod config option ATpreventDepart
+
+#### Removed
+
+#### Fixed Issues
+- colonists leaving on other rockets other than AT rockets
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.2.0 05/28/2019 1:46:26 AM
 #### Changed
 - OnMsg.RocketLaunchFromEarth(rocket) - strip specializations
