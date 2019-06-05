@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 29th, 2019
+-- Updated June 4th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -340,6 +340,24 @@ end -- OnMsg.RocketLaunchFromEarth(rocket)
 
 
 function OnMsg.ClassesGenerate()
+
+	-- re-write OnSelected()
+	local Old_DroneControl_OnSelected = DroneControl.OnSelected
+	function DroneControl:OnSelected()
+    -- short circuit if not a Tourist Rocket
+    if not self.AT_enabled then Old_DroneControl_OnSelected(self) end
+
+    local colonists = UICity.labels.Colonist or empty_table
+    local tourists = {}
+    for i = 1, #colonists do
+      if colonists[i].traits.Tourist then tourists[#tourists+1] = colonists[i] end
+    end -- for i
+
+    if #tourists > 0 then SelectionArrowAdd(tourists) end
+
+		Old_DroneControl_OnSelected(self)
+	end -- SupplyRocket:OnSelected()
+
 
   -- re-write OnDemolish to make sure vars, threads and other items are killed
   local Old_SupplyRocket_OnDemolish = SupplyRocket.OnDemolish

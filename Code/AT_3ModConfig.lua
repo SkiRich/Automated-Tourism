@@ -77,6 +77,7 @@ end -- WaitForModConFig
 ---------------------------------------------- OnMsgs -------------------------------------------------------------------
 
 function OnMsg.ModConfigReady()
+	local StringIdBase = 17764702300 -- Automated Tourism
 
     -- Register this mod's name and description
     ModConfig:RegisterMod("Automated_Tourism", -- ID
@@ -133,7 +134,7 @@ function OnMsg.ModConfigReady()
         desc = T{StringIdBase + 61, "Show the tourist recall radius circle around the rocket."},
         type = "boolean",
         default = true,
-        order = 5,
+        order = 5
     })
 
     -- ATearlyDepartures
@@ -142,7 +143,7 @@ function OnMsg.ModConfigReady()
         desc = T{StringIdBase + 63, "Set departure time to the next voyage time, if voyage is already set."},
         type = "boolean",
         default = true,
-        order = 6,
+        order = 6
     })
 
     -- g_AT_Options.ATstripSpecialty
@@ -151,7 +152,7 @@ function OnMsg.ModConfigReady()
         desc = T{StringIdBase + 65, "Remove any specialities for arriving tourists since they dont work anyway."},
         type = "boolean",
         default = true,
-        order = 7,
+        order = 7
     })
 
     -- g_AT_Options.ATpreventDepart
@@ -160,7 +161,7 @@ function OnMsg.ModConfigReady()
         desc = T{StringIdBase + 67, "Prevents tourists from leaving Mars on non tourist rockets when at least one Tourist Rocket is running."},
         type = "boolean",
         default = true,
-        order = 8,
+        order = 8
     })
 
 end -- ModConfigReady
@@ -212,22 +213,22 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
       		if rockets[i].AT_enabled and not rockets[i].AT_touristBoundary and not IsValid(rockets[i].AT_touristBoundary) then ATtoggleTouristBoundary(rockets[i], true) end
       	end -- for i
       end -- if not value
-    end -- ATvoyageWaitTime
+    end -- ATrecallRadius
 
     -- ATearlyDepartures
   	if option_id == "ATearlyDepartures" then
       g_AT_Options.ATearlyDepartures = value -- allow early departures
-    end -- ATvoyageWaitTime
+    end -- ATearlyDepartures
 
     -- g_AT_Options.ATstripSpecialty
   	if option_id == "ATstripSpecialty" then
       g_AT_Options.ATstripSpecialty = value -- strip specialties
-    end -- ATvoyageWaitTime
+    end -- g_AT_Options.ATstripSpecialty
 
     --g_AT_Options.ATpreventDepart
   	if option_id == "ATpreventDepart" then
       g_AT_Options.ATpreventDepart = value -- strip specialties
-    end -- ATvoyageWaitTime
+    end -- g_AT_Options.ATpreventDepart
 
   end -- if g_ModConfigLoaded
 end -- OnMsg.ModConfigChanged
