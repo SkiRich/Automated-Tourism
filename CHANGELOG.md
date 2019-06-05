@@ -1,4 +1,11 @@
 # Automated Tourism
+## v 1.4.0 06/05/2019 12:11:50 AM
+
+#### Added
+- function DroneControl:OnSelected()
+  - when a tourist rocket is selected highlight all the tourists colony wide
+
+--------------------------------------------------------
 ## v1.3.0 05/29/2019 7:47:56 PM
 #### Changed
 - OnMsg.LoadGame()
@@ -18,12 +25,6 @@
 
 #### Fixed Issues
 - colonists leaving on other rockets other than AT rockets
-
-#### Open Issues
-
-#### Deprecated
-
-#### Todo
 
 --------------------------------------------------------
 ## v1.2.0 05/28/2019 1:46:26 AM
