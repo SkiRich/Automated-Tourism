@@ -3,11 +3,12 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated June 4th, 2019
+-- Updated June 18th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
+                       -- use Msg("ToggleLFPrint", "AT") to toggle
 
 -- global variable to contain AT options
 g_AT_Options = {
@@ -137,7 +138,7 @@ end -- OnMsg.LoadGame()
 
 
 function OnMsg.RocketReachedEarth(rocket)
-	if lf_print and rocket.AT_enabled then print("Tourist Rocket Reached Earth") end
+	if lf_print and rocket.AT_enabled then print("Tourist Rocket Reached Earth: ", rocket.name) end
 
 	if rocket.AT_enabled then
      -- clear departure variables
@@ -148,7 +149,7 @@ end -- OnMsg.RocketReachedEarth(rocket)
 
 
 function OnMsg.RocketLaunched(rocket)
-	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Mars") end
+	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Mars: ", rocket.name) end
 
 	if rocket.AT_enabled then
      -- turn off tourist recall boundary
@@ -177,11 +178,12 @@ end -- OnMsg.RocketLaunched(rocket)
 
 
 function OnMsg.RocketLanded(rocket)
-	if lf_print and rocket.AT_enabled then print("Tourist Rocket Landed On Mars") end
+	if lf_print and rocket.AT_enabled then print("Tourist Rocket Landed On Mars: ", rocket.name) end
 
   if rocket.AT_enabled then
   	rocket.AT_last_arrival_time = GameTime()
   	rocket.AT_status = "landed"
+  	rocket.AT_GenDepartRan = false
 
   	-- setup rocket recall tourist boundary
     if g_AT_Options.ATrecallRadius then ATtoggleTouristBoundary(rocket, true) end
@@ -195,7 +197,7 @@ function OnMsg.RocketLanded(rocket)
   	if IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end
 
   	-- create thread to wait before launch up to 5 days if no tourists departing
-  	rocket.AT_depart_thread = CreateGameTimeThread(function()
+  	rocket.AT_depart_thread = CreateGameTimeThread(function(rocket)
   		if rocket.auto_export then rocket:ToggleAutoExport() end -- turn off auto launch sequence
   		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket")
 
@@ -206,26 +208,44 @@ function OnMsg.RocketLanded(rocket)
       rocket.AT_arriving_tourists = 0
       rocket.AT_departuretime = ""
       rocket.AT_departuretimeText = ""
-      Sleep(60000)
-      if lf_print then print("Calculating departure time") end
+
+      -- check the var, which is set in the new GenerateDepartures function
+      while not rocket.AT_GenDepartRan do
+      	Sleep(1000) -- wait a moment to check if GenerateDepartures finished
+      end -- while rocket.AT_GenDepartRan
+      rocket.AT_GenDepartRan = false
+
+      if lf_print then
+      	print(string.format("%s departures on %s", (rocket.departures and #rocket.departures) or 0, rocket.name))
+      	print("Calculating departure time: ", rocket.name)
+      end -- if lf_print
 
       -- set departure time and have_depatures
       ATcalcDepartureTime(rocket)
 
   		if not rocket.AT_have_departures then
   			-- if not departures
-  			if lf_print then print(string.format("Rocket waiting until %s - No current departures", rocket.AT_departuretimeText)) end
+  			if lf_print then print(string.format("Rocket %s waiting until %s - No current departures", rocket.name, rocket.AT_departuretimeText)) end
   			rocket.AT_status = "waitdepart"
   		  while (GameTime() < rocket.AT_departuretime) do
-  			  Sleep(2000) -- sleep 2 seconds at a time
+  			  Sleep(5000) -- sleep 5 seconds at a time
   		  end -- while GameTime
   		  -- call tourists to rocket
   		  ATflashStatus(rocket, "checkdepart", "waitdepart", true)
   		  rocket.departures = nil -- nil out departures to have GenerateDepartures execute
   		  rocket:GenerateDepartures()
-  		  -- wait 3 seconds then reset departure time and have_departures if there are departures
-  		  if lf_print then print("Sleeping 3 seconds") end
-  		  Sleep(3000)
+  		  -- reset departure time and have_departures if there are departures
+        -- check the var, which is set in the new GenerateDepartures function
+        while not rocket.AT_GenDepartRan do
+      	  Sleep(500)
+        end -- while rocket.AT_GenDepartRan
+        rocket.AT_GenDepartRan = false
+
+        if lf_print then
+        	print(string.format("%s departures on %s", (rocket.departures and #rocket.departures) or 0, rocket.name))
+       	  print("Calculating departure time: ", rocket.name)
+        end -- if lf_print
+
   		  ATcalcDepartureTime(rocket)
   		end -- if not rocket.AT_have_departures
 
@@ -233,19 +253,19 @@ function OnMsg.RocketLanded(rocket)
   			ATflashStatus(rocket) -- kill status thread if it exists
   			rocket.AT_status = "boarding"
   			-- if we have departures then reset and start countdown
-  		  if lf_print then print(string.format("Rocket has %s departures, departing %s", #rocket.departures, rocket.AT_departuretimeText)) end
+  		  if lf_print then print(string.format("Rocket %s has %s departures, departing %s", rocket.name, #rocket.departures, rocket.AT_departuretimeText)) end
   		  while (GameTime() < rocket.AT_departuretime) do
   			  Sleep(2000) -- sleep 2 seconds at a time
   		  end -- while GameTime
   	  end -- if rocket.AT_have_departures
 
-  		if lf_print then print("Rocket ready to depart") end
+  		if lf_print then print("Rocket ready to depart: ", rocket.name) end
 
   		ATflashStatus(rocket) -- kill status thread if it exists (possible set in oncontextupdate if tourists did board)
   		rocket.AT_status = "departing"
   		rocket:ReturnStockpiledResources() -- dump any resources on landing pad so we can launch
   		if rocket.AT_enabled then rocket:ToggleAutoExport() end -- turn on auto launch sequence, check to make sure still a tourist rocket
-  	end) -- AT_depart_thread
+  	end, rocket) -- AT_depart_thread
 
   end -- if AT_enabled
 
@@ -253,13 +273,13 @@ end -- OnMsg.RocketLanded(rocket)
 
 
 function OnMsg.RocketLaunchFromEarth(rocket)
-	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Earth") end
+	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Earth: ", rocket.name) end
 
 	if rocket.AT_enabled then
 		-- make sure last voyage was at least 5 sols ago
 		if (not rocket.AT_last_voyage_time) or (rocket.AT_last_voyage_time + (5 * const.DayDuration) <= GameTime()) then
 
-		  if lf_print and rocket.AT_enabled then print("Last tourist rocket older than 5 days, picking up new tourists.") end
+		  if lf_print and rocket.AT_enabled then print("Last tourist rocket older than 5 days, picking up new tourists: ", rocket.name) end
 
   	  -- gather new tourists
   	  local UICity   = UICity
@@ -312,8 +332,8 @@ function OnMsg.RocketLaunchFromEarth(rocket)
         }
       end -- if #tourists
 
-      -- load up the tourists and set last voyage time
-      if lf_print then print(string.format("Sending tourist rocket with %s tourists", #tourists)) end
+      -- load up the tourists and set last and next voyage time
+      if lf_print then print(string.format("Sending %s tourist rocket with %s tourists", rocket.name, #tourists)) end
       rocket.cargo = cargo
       rocket.AT_arriving_tourists = #tourists
       rocket.AT_status = "flyingtourists"
@@ -322,7 +342,7 @@ function OnMsg.RocketLaunchFromEarth(rocket)
       rocket.AT_next_voyage_timeText = ATConvertDateTime(rocket.AT_next_voyage_time)
 
     else
-    	if lf_print and rocket.AT_enabled then print(string.format("Last tourist rocket was %.2f sols ago.  Not sending new tourists.", (GameTime() - rocket.AT_last_voyage_time + 0.00)/const.DayDuration)) end
+    	if lf_print and rocket.AT_enabled then print(string.format("Last %s tourist rocket was %.2f sols ago.  Not sending new tourists.", rocket.name, (GameTime() - rocket.AT_last_voyage_time + 0.00)/const.DayDuration)) end
       rocket.AT_status = "flyingempty"
     end --if (not rocket.AT_last_voyage_time)
 
@@ -333,13 +353,14 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 
   else
   	-- short circuit if not a tourist rocket
-  	if lf_print then print("Launched rocket is not a tourist rocket")	end
+  	if lf_print then print("Launched rocket is not a tourist rocket:", rocket.name)	end
   end -- if rocket.AI_enabled
 
 end -- OnMsg.RocketLaunchFromEarth(rocket)
 
 
 function OnMsg.ClassesGenerate()
+
 
 	-- re-write OnSelected()
 	local Old_DroneControl_OnSelected = DroneControl.OnSelected
@@ -392,10 +413,22 @@ function OnMsg.ClassesGenerate()
   -- re-write generate departures to exclude non AT rockets
   local Old_SupplyRocket_GenerateDepartures = SupplyRocket.GenerateDepartures
   function SupplyRocket:GenerateDepartures()
-  	-- if rocket is an AT rocket or ATpreventDepart is false
+  	-- if rocket is an AT rocket or ATpreventDepart is false or there is no tourism rockets
   	if self.AT_enabled or (not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1) then
-  	  return Old_SupplyRocket_GenerateDepartures(self)
+		  if lf_print then print(string.format("--- GenerateDepartures is running on rocket %s --- ", self.name)) end
+  	  Old_SupplyRocket_GenerateDepartures(self)
+		  self.AT_GenDepartRan = true
+		  if lf_print then print(string.format("--- GenerateDepartures is finished on rocket %s --- ", self.name)) end
   	end -- if ATpreventDepart
   end -- SupplyRocket:GenerateDepartures()
 
 end -- OnMsg.ClassesGenerate()
+
+
+function OnMsg.ToggleLFPrint(modname)
+	-- use Msg("ToggleLFPrint", "AT") to toggle
+	if modname == "AT" then
+		lf_print = not lf_print
+		print(string.format("Toggle lf_print for %s: %s", modname, lf_print))
+  end -- if
+end -- OnMsg.ToggleLFPrint(modname)
