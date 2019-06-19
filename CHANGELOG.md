@@ -1,4 +1,24 @@
 # Automated Tourism
+## v1.4.2 06/18/2019 7:25:43 PM
+#### Changed
+- OnMsg.RocketLanded(rocket)
+  - using new code to wait for GenerateDepartures
+  - using new calc code for voyages
+- OnMsg.RocketLaunchFromEarth(rocket)
+  - using new calc code for voyages
+- thread uses local variable now
+
+#### Added
+- function OnMsg.ToggleLFPrint(modname)
+- added wait code and var for GenerateDepartures in onrocketlanded
+- added rocket names to lf prints
+
+#### Fixed Issues
+- calculating number of departures was incorrect if colonists boarded too fast.
+- fixed calculations for next voyage time in rocket landed and rocket leaving earth when using mod config options
+- altered ATcalcDepartureTime(rocket) to use proper calculations.
+
+--------------------------------------------------------
 ## v 1.4.0 06/05/2019 12:11:50 AM
 
 #### Added
