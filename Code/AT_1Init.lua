@@ -60,11 +60,15 @@ local function ATcalcDepartureTime(rocket)
 
   if rocket.AT_departures == 0 then
   	--no deparures then wait 5 days
-  	rocket.AT_departuretime = rocket.AT_last_arrival_time + (g_AT_Options.ATvoyageWaitTime * const.DayDuration) -- wait 5 days to depart if no immediate departures
+  	rocket.AT_departuretime = rocket.AT_last_arrival_time + const.HourDuration + (5 * const.DayDuration) -- wait 5 days and 1 hour to depart if no immediate departures
   	rocket.AT_have_departures = false
   	-- check for early departures if voyages exist
   	if g_AT_Options.ATearlyDepartures and rocket.AT_next_voyage_time and (rocket.AT_next_voyage_time <= rocket.AT_departuretime) then
-  		rocket.AT_departuretime = rocket.AT_next_voyage_time
+  		if rocket.AT_next_voyage_time <= GameTime() then
+  			rocket.AT_departuretime = GameTime() + (12 * const.HourDuration)
+  		else
+  			rocket.AT_departuretime = rocket.AT_next_voyage_time
+  		end -- if rocket.AT_next_voyage_time
   	end -- if g_AT_Options.ATearlyDepartures
   else
 	  -- if we have departures then reset last arrival time to now so we can recalculate departure time properly
@@ -171,7 +175,7 @@ function OnMsg.RocketLaunched(rocket)
     else
     	if lf_print then print("Status set to pickup") end
     	rocket.AT_status = "pickup"
-    end -- if (rocket.AT_nextvoyage_time > 0) -- determine status
+    end -- if (rocket.AT_next_voyage_time > 0) -- determine status
 
 	end -- if rocket.AT_enabled
 end -- OnMsg.RocketLaunched(rocket)
@@ -276,8 +280,8 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Earth: ", rocket.name) end
 
 	if rocket.AT_enabled then
-		-- make sure last voyage was at least 5 sols ago
-		if (not rocket.AT_last_voyage_time) or (rocket.AT_last_voyage_time + (5 * const.DayDuration) <= GameTime()) then
+		-- make sure last voyage was at least X sols ago
+		if (rocket.AT_last_voyage_time == 0 ) or (rocket.AT_next_voyage_time <= GameTime()) then
 
 		  if lf_print and rocket.AT_enabled then print("Last tourist rocket older than 5 days, picking up new tourists: ", rocket.name) end
 
@@ -338,7 +342,7 @@ function OnMsg.RocketLaunchFromEarth(rocket)
       rocket.AT_arriving_tourists = #tourists
       rocket.AT_status = "flyingtourists"
       rocket.AT_last_voyage_time = GameTime()
-      rocket.AT_next_voyage_time = rocket.AT_last_voyage_time + (5 * const.DayDuration)
+      rocket.AT_next_voyage_time = rocket.AT_last_voyage_time + (g_AT_Options.ATvoyageWaitTime  * const.DayDuration)
       rocket.AT_next_voyage_timeText = ATConvertDateTime(rocket.AT_next_voyage_time)
 
     else

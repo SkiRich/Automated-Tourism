@@ -3,6 +3,9 @@
 #### Changed
 - OnMsg.RocketLanded(rocket)
   - using new code to wait for GenerateDepartures
+  - using new calc code for voyages
+- OnMsg.RocketLaunchFromEarth(rocket)
+  - using new calc code for voyages
 - thread uses local variable now
 
 #### Added
@@ -12,9 +15,8 @@
 
 #### Fixed Issues
 - calculating number of departures was incorrect if colonists boarded too fast.
-
-#### Todo
-- change next voyage time to f0ollow mod config option
+- fixed calculations for next voyage time in rocket landed and rocket leaving earth when using mod config options
+- altered ATcalcDepartureTime(rocket) to use proper calculations.
 
 --------------------------------------------------------
 ## v 1.4.0 06/05/2019 12:11:50 AM
