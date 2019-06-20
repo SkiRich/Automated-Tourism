@@ -1,5 +1,18 @@
 # Automated Tourism
-## v1.4.2 06/18/2019 7:25:43 PM
+## v1.4.2 06/19/2019 10:30:33 PM
+#### Changed
+- RocketLanded()
+- AT_last_arrival_time moved a bit later in RocketLanded()
+
+#### Added
+- Check for passengers on arrival.  Delay depaturetime calc so we get unified colonist mars time.
+- var init and nil for AT_GenDepartRan
+
+#### Fixed Issues
+- Colonist departures somewhat skewed since departure time was too early.
+
+--------------------------------------------------------
+## v1.4.1 06/18/2019 7:25:43 PM
 #### Changed
 - OnMsg.RocketLanded(rocket)
   - using new code to wait for GenerateDepartures
