@@ -185,7 +185,6 @@ function OnMsg.RocketLanded(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Landed On Mars: ", rocket.name) end
 
   if rocket.AT_enabled then
-  	rocket.AT_last_arrival_time = GameTime()
   	rocket.AT_status = "landed"
   	rocket.AT_GenDepartRan = false
 
@@ -213,11 +212,21 @@ function OnMsg.RocketLanded(rocket)
       rocket.AT_departuretime = ""
       rocket.AT_departuretimeText = ""
 
-      -- check the var, which is set in the new GenerateDepartures function
+      -- check AT_GenDepartRan the var, which is set in the new GenerateDepartures function
       while not rocket.AT_GenDepartRan do
       	Sleep(1000) -- wait a moment to check if GenerateDepartures finished
       end -- while rocket.AT_GenDepartRan
       rocket.AT_GenDepartRan = false
+
+      -- check if we got passengers
+      if rocket.cargo and rocket.cargo[1] and rocket.cargo[1].class == "Passengers" then
+      	-- cargo will nil out when passengers all debark
+      	while rocket.cargo do
+      		Sleep(1000) -- wait a moment and check to make sure passengers get off
+      	end -- while
+      	Sleep(2000) -- pause a moment and reset the AT_last_arrival_time to the moment all passengers debark
+      end -- if rocket.cargo
+      rocket.AT_last_arrival_time = GameTime() -- set the arrival time when rocket touches down, used to calc next departure
 
       if lf_print then
       	print(string.format("%s departures on %s", (rocket.departures and #rocket.departures) or 0, rocket.name))

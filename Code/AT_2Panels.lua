@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 29th, 2019
+-- Updated June 19th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -36,6 +36,7 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_status               = false  -- text var holds current status message
 		rocket.AT_depart_thread        = false  -- var holds countdown thread for departures
 		rocket.AT_status_thread        = false  -- var holds status thread if it exists for boarding complete
+		rocket.AT_GenDepartRan         = false  -- var holds status of GenerateDepartures
 	else
 		g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets - 1
 	  rocket.AT_enabled              = nil
@@ -55,6 +56,7 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_depart_thread        = nil
 		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill the status thread if its running
 		rocket.AT_status_thread        = nil
+		rocket.AT_GenDepartRan         = nil
 		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
 	end -- if init
 end -- ATsetupvariables(state)
