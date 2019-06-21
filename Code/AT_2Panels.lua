@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated June 19th, 2019
+-- Updated June 21th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -27,6 +27,8 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_arriving_tourists    = 0      -- number of tourists picked up from earth
 		rocket.AT_departuretime        = 0      -- gametime var for departure time
 		rocket.AT_have_departures      = false  -- bool var to signify we got departures onnboard
+		rocket.AT_leaving_colonists    = 0      -- var holds the colonists wanting to leave
+		rocket.AT_boarded_colonists    = 0      -- var holds the colonists that boarded
 		rocket.AT_departuretimeText    = ""     -- text representation of gametime var
 		rocket.AT_last_arrival_time    = 0      -- gametime var for last time rocket landed
 		rocket.AT_touristBoundary      = false  -- var holds circle object for tourist boundary
@@ -44,6 +46,8 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_arriving_tourists    = nil
 		rocket.AT_departuretime        = nil
 		rocket.AT_have_departures      = nil
+		rocket.AT_leaving_colonists    = nil      -- var holds the colonists wanting to leave
+		rocket.AT_boarded_colonists    = nil      -- var holds the colonists that boarded
 		rocket.AT_departuretimeText    = nil
 		rocket.AT_last_arrival_time    = nil
 		ATtoggleTouristBoundary(rocket, false) -- clear the tourist recall boundary
@@ -51,11 +55,11 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_last_voyage_time     = nil
 		rocket.AT_next_voyage_time     = nil
 		rocket.AT_next_voyage_timeText = nil
-		rocket.AT_status               = nil
 		if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
 		rocket.AT_depart_thread        = nil
 		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill the status thread if its running
 		rocket.AT_status_thread        = nil
+	  rocket.AT_status               = nil
 		rocket.AT_GenDepartRan         = nil
 		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
 	end -- if init
@@ -170,6 +174,8 @@ local function ATUpdateStatusText(ui_status)
 		boardcomplete  = T{StringIdBase + 157, "Boarding complete"},
 		departing      = T{StringIdBase + 158, "Departing"},
 		checkdepart    = T{StringIdBase + 159, "Checking for departures"},
+		warnleaving    = T{StringIdBase + 160, "Warning rocket leaving soon"},
+		disembark      = T{StringIdBase + 161, "Colonists disembarking"},
 	}
 	return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
@@ -184,7 +190,7 @@ function ATflashStatus(rocket, status1, status2, enable)
 		return
 	end -- kill the status thread if its running
 	if enable and rocket and status1 and status2 then
-		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill thread if still running (should not happen)
+		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill thread if still running
 		local threadlimit = 500 -- prevent runaway threads
 		rocket.AT_status_thread = CreateGameTimeThread(function(rocket, stat1, stat2)
 			if lf_print then print(string.format("Status thread started.  Status1: %s,  Status2: %s", stat1, stat2)) end
@@ -230,7 +236,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.7"
+  local ATControlVer = "v1.12"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -280,7 +286,10 @@ function OnMsg.ClassesBuilt()
         end -- if auto exporting
 
         -- begin flash sequence for status
-        if rocket.AT_status == "boarding" and rocket.departures and #rocket.departures == 0 then ATflashStatus(rocket, "boardcomplete", "waitdepart", true) end
+        if not self.cxFlashStatus and rocket.AT_status == "boarding" and rocket.AT_boarded_colonists >= rocket.AT_leaving_colonists then
+        	ATflashStatus(rocket, "boardcomplete", "waitdepart", true)
+        	self.cxFlashStatus = true
+        end -- if rocket.AT_status
 
         -- toggle tourism button status
         if rocket.AT_enabled then
@@ -339,14 +348,20 @@ function OnMsg.ClassesBuilt()
         "Icon", iconATSection,
         "Title", T{StringIdBase + 105, "Tourist Rocket Status"},
         "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"},
-        "RolloverText", T{StringIdBase + 106, "Status Area Text"},
+        "RolloverText", T{StringIdBase + 106, "Tourism rocket is operating a route."},
         "OnContextUpdate", function(self, context)
         	local rocket = context
+        	-- check for new vars on existing rockets
+        	if type(rocket.AT_boarded_colonists) == "nil" then
+        		rocket.AT_boarded_colonists = 0
+        		rocket.AT_leaving_colonists = 0
+        	end -- if type
         	self.idATstatusSection.idATstatusTextResult:SetText(ATUpdateStatusText(rocket.AT_status or "idle"))
           self.idATtouristSection.idATarrivingTextResult:SetText(T{StringIdBase, "<colonist(AT_arriving_tourists)>"})
           self.idATtouristsOnEarthSection.idATtouristsOnEarthTextResult:SetText(T{StringIdBase, "<colonist(touristsOnEarth)>", touristsOnEarth = ATcountTouristsOnEarth()})
           self.idATtouristsOnMarsSection.idATtouristsOnMarsTextResult:SetText(T{StringIdBase, "<colonist(touristsOnMars)>", touristsOnMars = ATcountTouristsOnMars()})
           self.idATdeparturesSection.idATdeparturesTextResult:SetText(T{StringIdBase, "<colonist(AT_departures)>"})
+          self.idATboardingSection.idATboardingTextResult:SetText(T{StringIdBase, "<AT_boarded_colonists>/<colonist(AT_leaving_colonists)>"})
           self.idATdepartureTimeSection.idATdepartureTimeTextResult:SetText(T{StringIdBase, "<AT_departuretimeText>"})
           -- determine if voyage is ready
           if rocket.AT_next_voyage_time and (rocket.AT_next_voyage_time < GameTime()) then rocket.AT_next_voyage_timeText = "Ready for pickup" end
@@ -362,8 +377,6 @@ function OnMsg.ClassesBuilt()
 	   			"IdNode", true,
 	   			"Margins", box(0, 0, 0, 0),
     		 	"RolloverTemplate", "Rollover",
-    	  	--"RolloverTitle", T{StringIdBase + 17, "Elevator A.I. Restock Schedule"},
-          --"RolloverText", T{StringIdBase + 18, "The schedule is set by the frequency.  24 hours are divided by the frequency number and the A.I schedule is evenly distributed throughout the day.<newline><newline><em>Schedule</em><newline><EAI_schedule>"},
 	   		 },{
           	-- Status Text Section
             PlaceObj("XTemplateTemplate", {
@@ -502,6 +515,30 @@ function OnMsg.ClassesBuilt()
             }),
 	   	  }), -- end of idATtouristSection
 
+      	 -- Boarding Tourists Section
+			   PlaceObj('XTemplateWindow', {
+	   			'comment', "Status Section",
+          "Id", "idATboardingSection",
+	   			"IdNode", true,
+	   			"Margins", box(0, 0, 0, 0),
+    		 	"RolloverTemplate", "Rollover",
+	   		 },{
+          	-- Departing Tourists Text Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATboardingText",
+              "Margins", box(0, 0, 0, 0),
+              "Text", T{StringIdBase + 112, "Departures boarding rocket:"},
+            }),
+            -- Departing Tourists Text Result Section
+            PlaceObj("XTemplateTemplate", {
+              "__template", "InfopanelText",
+              "Id", "idATboardingTextResult",
+              "Margins", box(0, 0, 0, 0),
+              "TextHAlign", "right",
+            }),
+	   	  }), -- end of idATtouristSection
+
       	 -- Departure Time Section
 			   PlaceObj('XTemplateWindow', {
 	   			'comment', "Status Section",
@@ -515,7 +552,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATdepartureTimeText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 112, "Next departure:"},
+              "Text", T{StringIdBase + 113, "Next departure:"},
             }),
             -- Departure Time Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -539,7 +576,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATvoyageTimeText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 113, "Next voyage:"},
+              "Text", T{StringIdBase + 114, "Next voyage:"},
             }),
             -- Voyage Time Text Result Section
             PlaceObj("XTemplateTemplate", {

@@ -1,4 +1,40 @@
 # Automated Tourism
+## v1.5.0 06/20/2019 6:21:15 PM
+#### Changed
+- calculations of departures no longer use rocket.departure table for rocket.AT_departure
+- rocket.AT_departure now calculated on RocketLaunched()
+- OnMsg.RocketReachedEarth(rocket)
+- Colonist:LeavingMars(rocket) now checks for rocket to avoid errors when abandoning colonists on mars.
+- Updated XTemplat verion
+- Added check in OnContextUpdated for nil new variables
+- various StringIdBase changes
+
+
+#### Added
+- full rewrite of function Colonist:LeavingMars(rocket)
+- full rewrite of function SupplyRocket:GenerateDepartures()
+- print debug - lf_printcolonist
+- rocket.AT_leaving_colonists    = 0      -- var holds the colonists wanting to leave
+- rocket.AT_boarded_colonists    = 0      -- var holds the colonists that boarded
+- changed wait delay to 1 second when checking for GenerateDepartures()
+- added sleep pause after check for GenerateDepartures runs to allow leaving colonists to register
+- added Boarding Tourists Section idATboardingSection to template
+- added code to flash warning when almost departed
+- added new status warnflash
+- added new status disembark
+
+#### Removed
+
+#### Fixed Issues
+- still inaccurate departures.  grabbing #departures too soon.  Now using calculated colonists.
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.4.2 06/19/2019 10:30:33 PM
 #### Changed
 - RocketLanded()
