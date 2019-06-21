@@ -3,8 +3,10 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated June 18th, 2019
+-- Updated June 21th, 2019
 
+local lf_printcolonist = false -- setup debug colonist leaving
+                               -- Use Msg("ToggleLFPrint", "AT", "colonist")
 
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
@@ -56,10 +58,10 @@ end -- ATConvertDateTime()
 
 -- calculate departure time
 local function ATcalcDepartureTime(rocket)
-  rocket.AT_departures = (rocket.departures and #rocket.departures) or 0
 
-  if rocket.AT_departures == 0 then
-  	--no deparures then wait 5 days
+  if rocket.AT_leaving_colonists <= 0 then
+  	if lf_print then print("No leaving colonists on: ", rocket.name) end
+  	--no deparures then wait X days
   	rocket.AT_departuretime = rocket.AT_last_arrival_time + const.HourDuration + (5 * const.DayDuration) -- wait 5 days and 1 hour to depart if no immediate departures
   	rocket.AT_have_departures = false
   	-- check for early departures if voyages exist
@@ -71,10 +73,11 @@ local function ATcalcDepartureTime(rocket)
   		end -- if rocket.AT_next_voyage_time
   	end -- if g_AT_Options.ATearlyDepartures
   else
+  	if lf_print then print("Departures boarding on rocket: ", rocket.name) end
 	  -- if we have departures then reset last arrival time to now so we can recalculate departure time properly
   	rocket.AT_departuretime = GameTime() + (12 * const.HourDuration) -- wait 1/2 day to depart since we got departures
   	rocket.AT_have_departures = true
-  end -- rocket.AT_departures
+  end -- rocket.AT_leaving_colonists
 
   -- add departure time text
   rocket.AT_departuretimeText = ATConvertDateTime(rocket.AT_departuretime)
@@ -147,6 +150,8 @@ function OnMsg.RocketReachedEarth(rocket)
 	if rocket.AT_enabled then
      -- clear departure variables
     rocket.AT_departures = 0
+		rocket.AT_leaving_colonists    = 0      -- var holds the colonists wanting to leave
+		rocket.AT_boarded_colonists    = 0      -- var holds the colonists that boarded
 	end -- if rocket.AT_enabled
 
 end -- OnMsg.RocketReachedEarth(rocket)
@@ -159,8 +164,9 @@ function OnMsg.RocketLaunched(rocket)
      -- turn off tourist recall boundary
     ATtoggleTouristBoundary(rocket, false)
     rocket.AT_departuretimeText = ""
-    -- recalc departures in case we depart and leave someone behind
-  	if rocket.departures and #rocket.departures > 0 then rocket.AT_departures = rocket.AT_departures - #rocket.departures end
+    -- calc departures based on boarded colonists
+    rocket.AT_departures = rocket.AT_boarded_colonists
+    if rocket.AT_departures < 0 then rocket.AT_departures = 0 end
 
     -- notification of rocket launch
     local msg = T{StringIdBase + 2, "Departures: <count>", count = rocket.AT_departures}
@@ -181,10 +187,12 @@ function OnMsg.RocketLaunched(rocket)
 end -- OnMsg.RocketLaunched(rocket)
 
 
+-- all the magic happens here
 function OnMsg.RocketLanded(rocket)
-	if lf_print and rocket.AT_enabled then print("Tourist Rocket Landed On Mars: ", rocket.name) end
 
+  -- tourist rockets only
   if rocket.AT_enabled then
+  	if lf_print then print("Tourist Rocket Landed On Mars: ", rocket.name) end
   	rocket.AT_status = "landed"
   	rocket.AT_GenDepartRan = false
 
@@ -199,26 +207,26 @@ function OnMsg.RocketLanded(rocket)
     -- if a thread is already running then delete it (should never happen)
   	if IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end
 
-  	-- create thread to wait before launch up to 5 days if no tourists departing
+  	-- create thread to wait before launch up to X days if no tourists departing
   	rocket.AT_depart_thread = CreateGameTimeThread(function(rocket)
   		if rocket.auto_export then rocket:ToggleAutoExport() end -- turn off auto launch sequence
   		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket")
 
-      -- wait 60 seconds to calculate departure time due to landing delay
-      -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it here
-      rocket.AT_departures = 0
-      --~ set an on screen message here for arriving tourists
-      rocket.AT_arriving_tourists = 0
+       -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it here
+       -- it is called after all colonists disembark
+
+      if rocket.AT_arriving_tourists > 0 then ATflashStatus(rocket, "disembark", "landed", true) end
+
       rocket.AT_departuretime = ""
       rocket.AT_departuretimeText = ""
 
       -- check AT_GenDepartRan the var, which is set in the new GenerateDepartures function
       while not rocket.AT_GenDepartRan do
-      	Sleep(1000) -- wait a moment to check if GenerateDepartures finished
+      	Sleep(500) -- wait a moment to check if GenerateDepartures finished
       end -- while rocket.AT_GenDepartRan
       rocket.AT_GenDepartRan = false
 
-      -- check if we got passengers
+      -- check if we still got arriving passengers
       if rocket.cargo and rocket.cargo[1] and rocket.cargo[1].class == "Passengers" then
       	-- cargo will nil out when passengers all debark
       	while rocket.cargo do
@@ -226,10 +234,13 @@ function OnMsg.RocketLanded(rocket)
       	end -- while
       	Sleep(2000) -- pause a moment and reset the AT_last_arrival_time to the moment all passengers debark
       end -- if rocket.cargo
+      rocket.AT_arriving_tourists = 0
+      ATflashStatus(rocket) -- kill thread
+      rocket.AT_status = "landed"
       rocket.AT_last_arrival_time = GameTime() -- set the arrival time when rocket touches down, used to calc next departure
 
       if lf_print then
-      	print(string.format("%s departures on %s", (rocket.departures and #rocket.departures) or 0, rocket.name))
+      	print(string.format("%s departures on %s", rocket.AT_leaving_colonists, rocket.name))
       	print("Calculating departure time: ", rocket.name)
       end -- if lf_print
 
@@ -265,10 +276,15 @@ function OnMsg.RocketLanded(rocket)
   		if rocket.AT_have_departures then
   			ATflashStatus(rocket) -- kill status thread if it exists
   			rocket.AT_status = "boarding"
+  			local flashwarn = false
   			-- if we have departures then reset and start countdown
   		  if lf_print then print(string.format("Rocket %s has %s departures, departing %s", rocket.name, #rocket.departures, rocket.AT_departuretimeText)) end
   		  while (GameTime() < rocket.AT_departuretime) do
   			  Sleep(2000) -- sleep 2 seconds at a time
+  			  if not flashwarn and (GameTime() >= (rocket.AT_departuretime - (3 * const.HourDuration))) and (rocket.AT_leaving_colonists ~= rocket.AT_boarded_colonists) then -- warn 3 hours before
+  			  	flashwarn = true
+  			  	ATflashStatus(rocket, "warnleaving", "boarding", true)
+  			  end -- if GameTime
   		  end -- while GameTime
   	  end -- if rocket.AT_have_departures
 
@@ -417,31 +433,142 @@ function OnMsg.ClassesGenerate()
   local Old_GetRocketExpeditionStatus = GetRocketExpeditionStatus
   function GetRocketExpeditionStatus(rocket)
     if rocket.AT_enabled then
-      return T(StringIdBase + 115, "Tourist rocket")
+      return T(StringIdBase + 7, "Tourist rocket")
     end
     return Old_GetRocketExpeditionStatus(rocket)
   end -- GetRocketExpeditionStatus(rocket)
 
 
+  -- rewrite colonist leavingmars
+  -- had to re-write whole code since the delay in finding and calling leavingmars is too variable.
+  -- use old code when not AT_enabled
+  -- taken from colonist.lua
+  local Old_Colonist_LeavingMars = Colonist.LeavingMars
+  function Colonist:LeavingMars(rocket)
+  	-- short circuit if not a tourist rocket
+  	if rocket.AT_enabled then
+	    self.leaving = true
+	    self:SetDome(false)
+	    self:ClearTransportRequest()
+	    table.insert(rocket.departures, self)
+
+	    local reached
+	    self:PushDestructor(function(self)
+		    assert(self.command == "Die", "unexpected command (" .. self.command .. ") breaking colonist boarding sequence")
+		    self.leaving = false
+		    rocket.AT_leaving_colonists = rocket.AT_leaving_colonists - 1  -- remove from count
+		    table.remove_entry(rocket.departures, self)
+	    end) -- self:PushDestructor
+
+	    if not self:GotoBuildingSpot(rocket, rocket.drone_entry_spot) -- the colonist cannot reach the rocket, don't try to pass through objects, mountains or walk above ground...
+	    	or not IsValid(rocket) or not rocket:IsBoardingAllowed() then -- rocket already left
+	    	self:PopDestructor()
+	    	self.leaving = false
+	    	rocket.AT_leaving_colonists = rocket.AT_leaving_colonists - 1  -- remove from count
+	    	table.remove_entry(rocket.departures, self)
+	    	return
+	    end -- self:GotoBuildingSpot
+
+	    self:PopDestructor()
+	    self:PushDestructor(function(self)
+	    	-- if the rocket is still waiting for something, hop on
+	    	if lf_printcolonist then print(string.format("Colonist leaving on rocket: %s", rocket.name)) end
+
+	    	table.remove_entry(rocket.departures, self)
+	    	table.insert(rocket.boarding, self)
+
+	    	rocket:LeadIn(self, rocket.waypoint_chains.rocket_entrance[1])
+
+	    	-- remove from boarding list
+	    	table.remove_entry(rocket.boarding, self)
+
+	    	SelectionRemove(self) --deselect this colonist (mantis:0130871)
+	    	if self.traits.Tourist then
+	    		local tourist1 = GenerateApplicant(false, self.city)
+	    		tourist1.traits.Tourist = true
+	    		local tourist2 = GenerateApplicant(false, self.city)
+	    		tourist2.traits.Tourist = true
+	    	end -- if self
+	    	DoneObject(self)
+
+        -- colonist has boarded rocket
+	    	rocket.AT_boarded_colonists = rocket.AT_boarded_colonists + 1      -- var holds the colonists that boarded
+
+	    	--@@@msg ColonistLeavingMars, colonist, rocket - fired when any colonist is leaving Mars
+	    	Msg("ColonistLeavingMars", self, rocket)
+	    	RebuildInfopanel(self)
+	    end) -- self:PushDestructor
+	    self:PopAndCallDestructor()
+	  else
+	  	-- call original code
+	  	Old_Colonist_LeavingMars(self, rocket)
+	  end -- if rocket.AT_enabled
+  end -- Colonist:LeavingMars(rocket)
+
+
   -- re-write generate departures to exclude non AT rockets
+  -- had to re-write whole code since the delay in finding and calling leavingmars is too variable.
+  -- use old code when not AT_enabled
+  -- taken from rocket.lua
   local Old_SupplyRocket_GenerateDepartures = SupplyRocket.GenerateDepartures
   function SupplyRocket:GenerateDepartures()
+  	-- if not a tourism rocket or we dont have tourism rockets or we dont prevent departures run original code
+  	if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
+  		return Old_SupplyRocket_GenerateDepartures(self)
+  	end -- if not self.AT_enabled
+
   	-- if rocket is an AT rocket or ATpreventDepart is false or there is no tourism rockets
-  	if self.AT_enabled or (not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1) then
-		  if lf_print then print(string.format("--- GenerateDepartures is running on rocket %s --- ", self.name)) end
-  	  Old_SupplyRocket_GenerateDepartures(self)
-		  self.AT_GenDepartRan = true
-		  if lf_print then print(string.format("--- GenerateDepartures is finished on rocket %s --- ", self.name)) end
-  	end -- if ATpreventDepart
-  end -- SupplyRocket:GenerateDepartures()
+  	if self.AT_enabled then
+  	  if lf_print then print(string.format("--- GenerateDepartures is running on rocket %s --- ", self.name)) end
+
+  	  if not self.can_fly_colonists or self.departures then -- for compatibility
+  	  	self.AT_GenDepartRan = true  -- allow depart thread to continue
+  	  	return
+  	  end -- if not self.can_fly_colonists
+
+  	  assert(self:IsValidPos())
+  	  local domes = self.city.labels.Dome or ""
+  	  self.departures = {}
+  	  self.boarding = {}
+  	  local list = {}
+  	  for i = 1, #domes do
+  	  	local dome = domes[i]
+  	  	local tested, suitable
+  	  	for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
+  	  		if c:CanChangeCommand() and (c.status_effects.StatusEffect_Earthsick or (c.traits.Tourist and c.sols > g_Consts.TouristSolsOnMars)) then
+  	  			if not tested then
+  	  				suitable = IsInWalkingDist(self, dome, const.ColonistMaxDepartureRocketDist)
+  	  			end -- if not tested
+  	  			if suitable then
+  	  				list[#list + 1] = c
+  	  				c:SetCommand("LeavingMars", self)
+  	  			end -- if suitable
+  	  		end -- if c:CanChangeCommand
+  	  	end -- for _
+  	  end -- for i
+
+  	  if #list > 0 then
+  	  	self.AT_leaving_colonists = #list -- set the expected colonists that are leaving on tourism rocket
+  	  	AddOnScreenNotification("LeavingMars", false, {colonists_count = #list}, list)
+  	  end -- if #list
+
+  	  self.AT_GenDepartRan = true  -- allow depart thread to continue
+  	end -- if self.AT_enabled
+  end  -- SupplyRocket:GenerateDepartures()
 
 end -- OnMsg.ClassesGenerate()
 
 
-function OnMsg.ToggleLFPrint(modname)
+function OnMsg.ToggleLFPrint(modname, lfvar)
 	-- use Msg("ToggleLFPrint", "AT") to toggle
-	if modname == "AT" then
+	if modname == "AT" and (not lfvar) then
 		lf_print = not lf_print
 		print(string.format("Toggle lf_print for %s: %s", modname, lf_print))
   end -- if
+
+ 	if modname == "AT" and (lfvar == "colonist") then
+		lf_printcolonist = not lf_printcolonist
+		print(string.format("Toggle %s for %s: %s", lfvar, modname, lf_printcolonist))
+  end -- if
+
 end -- OnMsg.ToggleLFPrint(modname)
