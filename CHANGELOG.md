@@ -1,4 +1,15 @@
 # Automated Tourism
+## v1.6.0 06/22/2019 2:03:47 AM
+#### Changed
+- ticked up the template number
+- renumbered StringIdBase numbers
+
+#### Added
+- New statistics in rollovertext
+- function ATtouristInRangeText(rocket)
+- function ATcalcTouristsInRange(rocket)
+
+--------------------------------------------------------
 ## v1.5.0 06/20/2019 6:21:15 PM
 #### Changed
 - calculations of departures no longer use rocket.departure table for rocket.AT_departure

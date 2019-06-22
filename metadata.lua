@@ -1,8 +1,8 @@
 return PlaceObj('ModDef', {
 	'title', "Automated Tourism",
-	'description', "Automated Tourism\nv1.5.0\nby SKiRich",
+	'description', "Automated Tourism\nv1.6.0\nby SKiRich",
 	'image', "AutomatedTourism.png",
-	'last_changes', "v1.5.0 June 20th, 2019",
+	'last_changes', "v1.6.0 June 22th, 2019",
 	'ignore_files', {
 		"*.git/*",
 		"*.svn/*",
