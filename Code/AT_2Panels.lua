@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated June 21th, 2019
+-- Updated June 22th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -226,6 +226,58 @@ local function ATcalcTourismDollars()
 end -- ATcalcTourismDollars()
 
 
+-- calculate tourists within rocket range
+local function ATcalcTouristsInRange(rocket)
+  local domes = rocket.city.labels.Dome or ""
+  local list = {}
+  local touristDomes = {}
+  local touristBreakdown = {
+  	["1-4"] = 0,
+  	["5+"] = 0,
+  }
+  for i = 1, #domes do
+  	local dome = domes[i]
+  	local tested, suitable
+  	for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
+  		if not tested then
+  			suitable = c.traits.Tourist and IsInWalkingDist(rocket, dome, const.ColonistMaxDepartureRocketDist)
+  		end -- if not tested
+  		if suitable then
+  			if not touristDomes[dome.name] then touristDomes[dome.name] = 0 end
+  			touristDomes[dome.name] = touristDomes[dome.name] + 1
+  			list[#list + 1] = c
+  			if c.sols < 5 then touristBreakdown["1-4"] = touristBreakdown["1-4"] + 1
+  				            else touristBreakdown["5+"] = touristBreakdown["5+"] + 1 end
+  		end -- if suitable
+  	end -- for _
+  end -- for i
+  return list, touristDomes, touristBreakdown
+end -- ATcalcTouristsInRange(rocket)
+
+
+local function ATtouristInRangeText(rocket)
+  local list, touristDomes, touristBreakdown = ATcalcTouristsInRange(rocket)
+	local texts = {}
+	local touristDomesTxt = table.concat(touristDomes)
+	local touristBreakdownTxt = table.concat(touristBreakdown)
+	local haveDomes = false
+
+	texts[1] = T{StringIdBase + 130, "<em><center>Tourists In Rocket Range<left></em>"}
+	texts[2] = T{StringIdBase + 131, string.format("Total in range:<right><colonist(%s)><left><newline>", #list)}
+	texts[3] = T{StringIdBase + 132, "<em><center>Sols On Mars Breakdown<left></em>"}
+	texts[4] = T{StringIdBase + 133, string.format("1 to 4 Sols:<right><colonist(%s)><left>", touristBreakdown["1-4"])}
+	texts[5] = T{StringIdBase + 134, string.format("5 or more Sols:<right><colonist(%s)><left>", touristBreakdown["5+"])}
+	texts[6] = "<newline>"
+	texts[7] = T{StringIdBase + 135, "<em><center>Local Dome Breakdown<left></em>"}
+	for dome, count in pairs(touristDomes) do
+		table.insert(texts, T{StringIdBase + 199, string.format("%s:<right><colonist(%s)><left>", dome, count)})
+		haveDomes = true
+	end -- for dome
+	if not haveDomes then table.insert(texts, T{StringIdBase + 136, "<center>No tourists residing in rocket range"}) end
+
+	return table.concat(texts, "<newline>")
+end -- ATtouristInRangeText()
+
 
 ----------------------- OnMsg -------------------------------------------------------------------------------
 
@@ -236,7 +288,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.12"
+  local ATControlVer = "v1.13"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -356,16 +408,22 @@ function OnMsg.ClassesBuilt()
         		rocket.AT_boarded_colonists = 0
         		rocket.AT_leaving_colonists = 0
         	end -- if type
+
+        	if not self.cxROtext then
+        		self:SetRolloverText(ATtouristInRangeText(rocket))
+        	  self.csROtext = true
+        	end -- not self.cxROtext
+
         	self.idATstatusSection.idATstatusTextResult:SetText(ATUpdateStatusText(rocket.AT_status or "idle"))
-          self.idATtouristSection.idATarrivingTextResult:SetText(T{StringIdBase, "<colonist(AT_arriving_tourists)>"})
-          self.idATtouristsOnEarthSection.idATtouristsOnEarthTextResult:SetText(T{StringIdBase, "<colonist(touristsOnEarth)>", touristsOnEarth = ATcountTouristsOnEarth()})
-          self.idATtouristsOnMarsSection.idATtouristsOnMarsTextResult:SetText(T{StringIdBase, "<colonist(touristsOnMars)>", touristsOnMars = ATcountTouristsOnMars()})
-          self.idATdeparturesSection.idATdeparturesTextResult:SetText(T{StringIdBase, "<colonist(AT_departures)>"})
-          self.idATboardingSection.idATboardingTextResult:SetText(T{StringIdBase, "<AT_boarded_colonists>/<colonist(AT_leaving_colonists)>"})
-          self.idATdepartureTimeSection.idATdepartureTimeTextResult:SetText(T{StringIdBase, "<AT_departuretimeText>"})
+          self.idATtouristSection.idATarrivingTextResult:SetText(T{StringIdBase + 199, "<colonist(AT_arriving_tourists)>"})
+          self.idATtouristsOnEarthSection.idATtouristsOnEarthTextResult:SetText(T{StringIdBase + 199, "<colonist(touristsOnEarth)>", touristsOnEarth = ATcountTouristsOnEarth()})
+          self.idATtouristsOnMarsSection.idATtouristsOnMarsTextResult:SetText(T{StringIdBase + 199, "<colonist(touristsOnMars)>", touristsOnMars = ATcountTouristsOnMars()})
+          self.idATdeparturesSection.idATdeparturesTextResult:SetText(T{StringIdBase + 199, "<colonist(AT_departures)>"})
+          self.idATboardingSection.idATboardingTextResult:SetText(T{StringIdBase + 199, "<AT_boarded_colonists>/<colonist(AT_leaving_colonists)>"})
+          self.idATdepartureTimeSection.idATdepartureTimeTextResult:SetText(T{StringIdBase + 199, "<AT_departuretimeText>"})
           -- determine if voyage is ready
           if rocket.AT_next_voyage_time and (rocket.AT_next_voyage_time < GameTime()) then rocket.AT_next_voyage_timeText = "Ready for pickup" end
-          self.idATvoyageTimeSection.idATvoyageTimeTextResult:SetText(T{StringIdBase, "<AT_next_voyage_timeText>"})
+          self.idATvoyageTimeSection.idATvoyageTimeTextResult:SetText(T{StringIdBase + 199, "<AT_next_voyage_timeText>"})
           self.idATfundingSection.idATfundingTextResult:SetText(ATcalcTourismDollars())
         end, -- OnContextUpdate
       },{
@@ -408,7 +466,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATfundingText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 114, "Total funds from tourists:"},
+              "Text", T{StringIdBase + 108, "Total funds from tourists:"},
             }),
             -- Tourism Dollars Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -432,7 +490,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATarrivingText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 108, "Arriving tourist onboard:"},
+              "Text", T{StringIdBase + 109, "Arriving tourist onboard:"},
             }),
             -- Arriving Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -456,7 +514,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATtouristsOnEarthText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 109, "Tourists waiting on Earth:"},
+              "Text", T{StringIdBase + 110, "Tourists waiting on Earth:"},
             }),
             -- Arriving Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -480,7 +538,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATtouristsOnMarsText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 110, "Tourists residing on Mars:"},
+              "Text", T{StringIdBase + 111, "Tourists residing on Mars:"},
             }),
             -- Tourists on Mars Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -504,7 +562,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATdeparturesText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 111, "Departures on rocket:"},
+              "Text", T{StringIdBase + 112, "Departures on rocket:"},
             }),
             -- Departing Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -528,7 +586,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATboardingText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 112, "Departures boarding rocket:"},
+              "Text", T{StringIdBase + 113, "Departures boarding rocket:"},
             }),
             -- Departing Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -552,7 +610,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATdepartureTimeText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 113, "Next departure:"},
+              "Text", T{StringIdBase + 114, "Next departure:"},
             }),
             -- Departure Time Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -576,7 +634,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATvoyageTimeText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 114, "Next voyage:"},
+              "Text", T{StringIdBase + 115, "Next voyage:"},
             }),
             -- Voyage Time Text Result Section
             PlaceObj("XTemplateTemplate", {
