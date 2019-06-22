@@ -260,6 +260,7 @@ local function ATtouristInRangeText(rocket)
 	local texts = {}
 	local touristDomesTxt = table.concat(touristDomes)
 	local touristBreakdownTxt = table.concat(touristBreakdown)
+	local haveDomes = false
 
 	texts[1] = T{StringIdBase + 130, "<em><center>Tourists In Rocket Range<left></em>"}
 	texts[2] = T{StringIdBase + 131, string.format("Total in range:<right><colonist(%s)><left><newline>", #list)}
@@ -270,8 +271,9 @@ local function ATtouristInRangeText(rocket)
 	texts[7] = T{StringIdBase + 135, "<em><center>Local Dome Breakdown<left></em>"}
 	for dome, count in pairs(touristDomes) do
 		table.insert(texts, T{StringIdBase + 199, string.format("%s:<right><colonist(%s)><left>", dome, count)})
+		haveDomes = true
 	end -- for dome
-	if #touristDomes < 1 then table.insert(texts, T{StringIdBase + 136, "<center>No tourists residing in rocket range"}) end
+	if not haveDomes then table.insert(texts, T{StringIdBase + 136, "<center>No tourists residing in rocket range"}) end
 
 	return table.concat(texts, "<newline>")
 end -- ATtouristInRangeText()
