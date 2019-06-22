@@ -240,7 +240,7 @@ local function ATcalcTouristsInRange(rocket)
   	local tested, suitable
   	for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
   		if not tested then
-  			suitable = c.traits.Tourist and IsInWalkingDist(rocket, dome, const.ColonistMaxDepartureRocketDist)
+  			suitable = c.traits.Tourist and IsInWalkingDist(rocket.landing_site, dome, const.ColonistMaxDepartureRocketDist)
   		end -- if not tested
   		if suitable then
   			if not touristDomes[dome.name] then touristDomes[dome.name] = 0 end
@@ -262,7 +262,7 @@ local function ATtouristInRangeText(rocket)
 	local touristBreakdownTxt = table.concat(touristBreakdown)
 	local haveDomes = false
 
-	texts[1] = T{StringIdBase + 130, "<em><center>Tourists In Rocket Range<left></em>"}
+	texts[1] = T{StringIdBase + 130, "<em><center>Tourists Residing In Rocket Range<left></em>"}
 	texts[2] = T{StringIdBase + 131, string.format("Total in range:<right><colonist(%s)><left><newline>", #list)}
 	texts[3] = T{StringIdBase + 132, "<em><center>Sols On Mars Breakdown<left></em>"}
 	texts[4] = T{StringIdBase + 133, string.format("1 to 4 Sols:<right><colonist(%s)><left>", touristBreakdown["1-4"])}
