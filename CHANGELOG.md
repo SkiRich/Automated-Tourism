@@ -1,4 +1,34 @@
 # Automated Tourism
+## v1.6.1 06/26/2019 2:12:29 AM
+#### Changed
+- function ATtoggleTouristBoundary(rocket, state)
+  - using new tourist boundary radius
+- SupplyRocket:GenerateDepartures()
+  - changed IsInWalkingDistance for new custom function ATcheckDist
+- added options to ToggleLFPrint
+- function ATcalcTouristsInRange(rocket)
+
+#### Added
+- local lf_printdistance for debugging distance prints
+- g_AT_Options.ATmax_walk_dist     = 2,
+- local ResolvePos = function(bld1, bld2)  direct copy from dome.lua
+- function ATcheckDist(bld1, bld2, distance)  a custom replacement for IsInWalkingDistance's Checkdist
+-   function SupplyRocket:IsRocketOnMars() -- not used for now but keeping it.
+- local max_walk_dist = g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist
+
+
+
+#### Removed
+
+#### Fixed Issues
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.6.0 06/22/2019 2:03:47 AM
 #### Changed
 - ticked up the template number

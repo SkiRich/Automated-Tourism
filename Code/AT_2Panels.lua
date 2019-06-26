@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated June 22th, 2019
+-- Updated June 26th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -235,12 +235,13 @@ local function ATcalcTouristsInRange(rocket)
   	["1-4"] = 0,
   	["5+"] = 0,
   }
+  local max_walk_dist = g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist
   for i = 1, #domes do
   	local dome = domes[i]
   	local tested, suitable
   	for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
   		if not tested then
-  			suitable = c.traits.Tourist and IsInWalkingDist(rocket.landing_site, dome, const.ColonistMaxDepartureRocketDist)
+  			suitable = c.traits.Tourist and ATcheckDist(rocket.landing_site, dome, max_walk_dist)
   		end -- if not tested
   		if suitable then
   			if not touristDomes[dome.name] then touristDomes[dome.name] = 0 end

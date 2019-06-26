@@ -3,7 +3,10 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated June 21th, 2019
+-- Updated June 26th, 2019
+
+local lf_printdistance = false -- setup debug for distance checking
+                               -- Use Msg("ToggleLFPrint", "AT", "distance")
 
 local lf_printcolonist = false -- setup debug colonist leaving
                                -- Use Msg("ToggleLFPrint", "AT", "colonist")
@@ -22,6 +25,7 @@ g_AT_Options = {
 	ATearlyDepartures   = true,      -- allow for earlier departures when voyages waiting
 	ATstripSpecialty    = true,      -- strip a tourists specialty upon arrival
 	ATpreventDepart     = true,      -- prevents colonists from using non AT rockets to depart
+	ATmax_walk_dist     = 2,         -- x const.ColonistMaxDomeWalkDist for calcs in recall and boundary
 } -- g_AT_Options
 
 -- Save game fixup variables
@@ -33,7 +37,6 @@ g_AT_NumOfTouristRockets = 0       -- keeps track of the number of tourist rocke
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 300-349:  Next is 7
 local ModDir = CurrentModPath
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
-
 
 -- count the numbere of AT rockets in play
 local function ATcountATrockets()
@@ -87,12 +90,18 @@ end -- ATcalcDepartureTime()
 
 -- toggle the tourist recall boundary circle
 function ATtoggleTouristBoundary(rocket, state)
+	  -- just in case the circle is still painted or painted off map
+	  -- caused if mod options changed while still in space
+	  if state and rocket.AT_touristBoundary then
+			DoneObject(rocket.AT_touristBoundary)
+			rocket.AT_touristBoundary = false
+		end -- if rocket.AT_touristBoundary
 
   	-- setup rocket recall tourist boundary
-    if state and (not rocket.AT_touristBoundary) then
+    if state and (not rocket.AT_touristBoundary) and not (rocket:GetPos() == InvalidPos()) then
       rocket.AT_touristBoundary = Circle:new()
       rocket.AT_touristBoundary:SetPos(rocket:GetPos())
-      rocket.AT_touristBoundary:SetRadius(const.ColonistMaxDepartureRocketDist)
+      rocket.AT_touristBoundary:SetRadius(g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist)
       rocket.AT_touristBoundary:SetColor(white)
     end -- if not rocket.touristBoundary
 
@@ -135,6 +144,61 @@ local function ATfixupSaves()
 		end -- for i
 	end -- if g_AT_currentFixupVer
 end -- ATfixupSave()
+
+-- copied from dome.lua  its a local function - Boo-Hiss
+local ResolvePos = function(bld1, bld2)
+  local pos
+  if IsPoint(bld1) then
+    pos = bld1
+  else
+    bld1 = IsKindOf(bld1, "Unit") and (IsUnitInDome(bld1) or bld1.holder) or bld1
+    if IsValid(bld1) then
+      if IsKindOf(bld1, "Building") then
+        bld1 = bld1.parent_dome or bld1
+        local entrance
+        entrance, pos = bld1:GetEntrance(bld2)
+        pos = pos or bld2 and bld1:GetSpotPos(bld1:GetNearestSpot("idle", "Workdrone", bld2))
+      end
+      pos = pos or bld1:GetPos()
+    end
+  end
+  return pos and invalid_pos ~= pos and GetPassablePointNearby(pos)
+end
+
+-- rewrite of CheckDist which is in dome.lua but is a local ... boo-hiss
+function ATcheckDist(bld1, bld2, distance)
+  -- local CheckDist = function(bld1, bld2)
+  -- from _GameConst.lua
+  -- these changed since curiosity patch
+  -- const.ColonistMaxDepartureRocketDist = 1200 * guim --when leaving, a rocket cant be used if placed beyond that distance from the dome
+  -- const.ColonistMaxDomeWalkDist = 400 * guim -- distance between two domes to consider them in walk range
+
+  local p1, p2 = ResolvePos(bld1, bld2), ResolvePos(bld2, bld1)
+  if not p1 or not p2 then
+  	if lf_printdistance then print("--- Distance not resolved sending false") end
+    return false, max_int
+  end
+  if p1 == p2 then
+  	if lf_printdistance then print("--- Distance calc not needed, same building") end
+    return true, 0
+  end
+  local has_path
+  local len_sl = p1:Dist2D(p2)
+  if len_sl > distance then
+  	if lf_printdistance then print("--- Distance too far, sending false") end
+    return false, len_sl, true
+  end
+  local has_path, len = PathLenCached(p1, Colonist.pfclass, p2)
+  if has_path and len > distance then
+  	if lf_printdistance then print("--- Distance OK but no path to destination, sending false") end
+    has_path = false
+  end
+  if lf_printdistance then print("--- ATcheckDist result: ", has_path) end
+  return has_path or false, len
+end -- ATcheckDist(bld1, bld2)
+
+
+
 
 --------------------------------------------------------- OnMsgs --------------------------------------------------------
 
@@ -388,8 +452,8 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 end -- OnMsg.RocketLaunchFromEarth(rocket)
 
 
+------------------------------------------------------ ClassesGenerate() ----------------------------------------
 function OnMsg.ClassesGenerate()
-
 
 	-- re-write OnSelected()
 	local Old_DroneControl_OnSelected = DroneControl.OnSelected
@@ -428,6 +492,10 @@ function OnMsg.ClassesGenerate()
   		                 else return Old_SupplyRocket_IsRocketLanded(self) end
   end -- SupplyRocket:IsRocketLanded()
 
+  -- duplicate of old IsRocketLanded
+  function SupplyRocket:IsRocketOnMars()
+	  return self.command == "Refuel" or self.command == "WaitLaunchOrder" or self.command == "Unload"
+  end -- SupplyRocket:IsRocketOnMars()
 
   -- add tourist rocket status to rockets in send expedition view
   local Old_GetRocketExpeditionStatus = GetRocketExpeditionStatus
@@ -531,13 +599,14 @@ function OnMsg.ClassesGenerate()
   	  self.departures = {}
   	  self.boarding = {}
   	  local list = {}
+  	  local max_walk_dist = g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist
   	  for i = 1, #domes do
   	  	local dome = domes[i]
   	  	local tested, suitable
   	  	for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
   	  		if c:CanChangeCommand() and (c.status_effects.StatusEffect_Earthsick or (c.traits.Tourist and c.sols > g_Consts.TouristSolsOnMars)) then
   	  			if not tested then
-  	  				suitable = IsInWalkingDist(self, dome, const.ColonistMaxDepartureRocketDist)
+  	  				suitable = ATcheckDist(self, dome, max_walk_dist)
   	  			end -- if not tested
   	  			if suitable then
   	  				list[#list + 1] = c
@@ -569,6 +638,11 @@ function OnMsg.ToggleLFPrint(modname, lfvar)
  	if modname == "AT" and (lfvar == "colonist") then
 		lf_printcolonist = not lf_printcolonist
 		print(string.format("Toggle %s for %s: %s", lfvar, modname, lf_printcolonist))
+  end -- if
+
+ 	if modname == "AT" and (lfvar == "distance") then
+		lf_printdistance = not lf_printdistance
+		print(string.format("Toggle %s for %s: %s", lfvar, modname, lf_printdistance))
   end -- if
 
 end -- OnMsg.ToggleLFPrint(modname)
