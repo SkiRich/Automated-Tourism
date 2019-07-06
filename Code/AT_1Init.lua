@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated June 26th, 2019
+-- Updated July 6th, 2019
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -26,6 +26,7 @@ g_AT_Options = {
 	ATstripSpecialty    = true,      -- strip a tourists specialty upon arrival
 	ATpreventDepart     = true,      -- prevents colonists from using non AT rockets to depart
 	ATmax_walk_dist     = 2,         -- x const.ColonistMaxDomeWalkDist for calcs in recall and boundary
+	ATfoodPerTourist    = 1,         -- Food each tourist brings to mars on board rocket
 } -- g_AT_Options
 
 -- Save game fixup variables
@@ -217,6 +218,8 @@ function OnMsg.RocketReachedEarth(rocket)
     rocket.AT_departures = 0
 		rocket.AT_leaving_colonists    = 0      -- var holds the colonists wanting to leave
 		rocket.AT_boarded_colonists    = 0      -- var holds the colonists that boarded
+	elseif rocket.AT_departures then
+		rocket.AT_departures = nil -- remove variable if there were departures on a non AT rocket, once it reaches earth
 	end -- if rocket.AT_enabled
 
 end -- OnMsg.RocketReachedEarth(rocket)
@@ -415,15 +418,21 @@ function OnMsg.RocketLaunchFromEarth(rocket)
       	  end -- for i
       	end -- if g_AT_Options.ATstripSpecialty
 
+        -- load up the passenger manifest
         cargo[1] = {
           class = "Passengers",
           amount = count,
           applicants_data = tourists
         }
-        cargo[2] = {
-          class = "Food",
-          amount = MulDivRound(count, g_Consts.FoodPerRocketPassenger, const.ResourceScale)
-        }
+        -- load up the food manifest
+        if g_AT_Options.ATfoodPerTourist > 0 then
+          cargo[2] = {
+           class = "Food",
+           -- original formula used whatever the mission sponsor food amount was, now use modconfig.
+           -- amount = MulDivRound(count, g_Consts.FoodPerRocketPassenger, const.ResourceScale)
+           amount = MulDivRound(count * g_AT_Options.ATfoodPerTourist, 1000, const.ResourceScale)
+         }
+        end -- if ATfoodPerTourist
       end -- if #tourists
 
       -- load up the tourists and set last and next voyage time

@@ -41,8 +41,12 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_GenDepartRan         = false  -- var holds status of GenerateDepartures
 	else
 		g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets - 1
+		if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
+		rocket.AT_depart_thread        = nil
+		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill the status thread if its running
+		rocket.AT_status_thread        = nil
 	  rocket.AT_enabled              = nil
-		--rocket.AT_departures           = nil -- remmed, keep departures if cycling on/off
+	  if rocket.AT_departures < 1 then rocket.AT_departures = nil end -- if departures > 0 then keep departures if cycling on/off
 		rocket.AT_arriving_tourists    = nil
 		rocket.AT_departuretime        = nil
 		rocket.AT_have_departures      = nil
@@ -55,10 +59,6 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_last_voyage_time     = nil
 		rocket.AT_next_voyage_time     = nil
 		rocket.AT_next_voyage_timeText = nil
-		if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
-		rocket.AT_depart_thread        = nil
-		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill the status thread if its running
-		rocket.AT_status_thread        = nil
 	  rocket.AT_status               = nil
 		rocket.AT_GenDepartRan         = nil
 		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
@@ -289,7 +289,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.13"
+  local ATControlVer = "v1.14"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -405,7 +405,7 @@ function OnMsg.ClassesBuilt()
         "OnContextUpdate", function(self, context)
         	local rocket = context
         	-- check for new vars on existing rockets
-        	if type(rocket.AT_boarded_colonists) == "nil" then
+        	if rocket.AT_enabled and (type(rocket.AT_boarded_colonists) == "nil") then
         		rocket.AT_boarded_colonists = 0
         		rocket.AT_leaving_colonists = 0
         	end -- if type

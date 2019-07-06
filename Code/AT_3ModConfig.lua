@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated May 29th, 2019
+-- Updated July 6th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -58,6 +58,7 @@ local function WaitForModConfig()
         g_AT_Options.ATearlyDepartures = ModConfig:Get("Automated_Tourism", "ATearlyDepartures")
         g_AT_Options.ATstripSpecialty  = ModConfig:Get("Automated_Tourism", "ATstripSpecialty")
         g_AT_Options.ATpreventDepart   = ModConfig:Get("Automated_Tourism", "ATpreventDepart")
+        g_AT_Options.ATfoodPerTourist  = ModConfig:Get("Automated_Tourism", "ATfoodPerTourist")
 
         ModLog(string.format("%s detected ModConfig running - Setup Complete", mod_name))
       else
@@ -164,6 +165,18 @@ function OnMsg.ModConfigReady()
         order = 8
     })
 
+    -- g_AT_Options.ATfoodPerTourist
+    ModConfig:RegisterOption("Automated_Tourism", "ATfoodPerTourist", {
+        name = T{StringIdBase + 68, "Amount of food each tourist brings to Mars:"},
+        desc = T{StringIdBase + 69, "Amount of food each tourist brings to Mars."},
+        type = "number",
+        default = 1,
+        min = 0,
+        max = 5,
+        step = 1,
+        order = 9
+    })
+
 end -- ModConfigReady
 
 
@@ -229,6 +242,11 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
   	if option_id == "ATpreventDepart" then
       g_AT_Options.ATpreventDepart = value -- strip specialties
     end -- g_AT_Options.ATpreventDepart
+
+    -- g_AT_Options.ATfoodPerTourist
+  	if option_id == "ATfoodPerTourist" then
+      g_AT_Options.ATfoodPerTourist = value -- food per tourist en route to mars
+    end -- g_AT_Options.ATfoodPerTourist
 
   end -- if g_ModConfigLoaded
 end -- OnMsg.ModConfigChanged
