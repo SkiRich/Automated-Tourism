@@ -1,4 +1,13 @@
 # Automated Tourism
+## v1.6.2 07/05/2019 9:44:33 PM
+#### Changed
+- local ResolvePos = function(bld1, bld2)
+  - was missing reference to invalid_pos
+
+#### Fixed Issues
+- ResolvePos was missing reference to InvalidPos()
+
+--------------------------------------------------------
 ## v1.6.1 06/26/2019 2:12:29 AM
 #### Changed
 - function ATtoggleTouristBoundary(rocket, state)
