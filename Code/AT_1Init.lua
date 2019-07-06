@@ -148,6 +148,7 @@ end -- ATfixupSave()
 -- copied from dome.lua  its a local function - Boo-Hiss
 local ResolvePos = function(bld1, bld2)
   local pos
+  local invalid_pos = InvalidPos()
   if IsPoint(bld1) then
     pos = bld1
   else
