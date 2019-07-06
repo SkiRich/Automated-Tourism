@@ -218,6 +218,8 @@ function OnMsg.RocketReachedEarth(rocket)
     rocket.AT_departures = 0
 		rocket.AT_leaving_colonists    = 0      -- var holds the colonists wanting to leave
 		rocket.AT_boarded_colonists    = 0      -- var holds the colonists that boarded
+	elseif rocket.AT_departures then
+		rocket.AT_departures = nil -- remove variable if there were departures on a non AT rocket, once it reaches earth
 	end -- if rocket.AT_enabled
 
 end -- OnMsg.RocketReachedEarth(rocket)
@@ -426,7 +428,9 @@ function OnMsg.RocketLaunchFromEarth(rocket)
         if g_AT_Options.ATfoodPerTourist > 0 then
           cargo[2] = {
            class = "Food",
-           amount = MulDivRound(count * g_AT_Options.ATfoodPerTourist, g_Consts.FoodPerRocketPassenger, const.ResourceScale)
+           -- original formula used whatever the mission sponsor food amount was, now use modconfig.
+           -- amount = MulDivRound(count, g_Consts.FoodPerRocketPassenger, const.ResourceScale)
+           amount = MulDivRound(count * g_AT_Options.ATfoodPerTourist, 1000, const.ResourceScale)
          }
         end -- if ATfoodPerTourist
       end -- if #tourists

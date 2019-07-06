@@ -3,10 +3,13 @@
 #### Changed
 - OnMsg.RocketLaunchFromEarth(rocket)
   - added variables for food per tourist
+- ATControlVer = "v1.14"
+- changed nil order of ATsetupVariables(rocket, init) to remove threads first
 
 #### Added
 - g_AT_Options.ATfoodPerTourist
 - mod config options for ATfoodPerTourist
+- added check for AT_enabled to new vars in OnContextUpdate to prevent adding vars to non AT rockets
 
 --------------------------------------------------------
 ## v1.6.2 07/05/2019 9:44:33 PM
