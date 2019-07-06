@@ -1,4 +1,14 @@
 # Automated Tourism
+## v1.7.0 07/06/2019 1:11:23 AM
+#### Changed
+- OnMsg.RocketLaunchFromEarth(rocket)
+  - added variables for food per tourist
+
+#### Added
+- g_AT_Options.ATfoodPerTourist
+- mod config options for ATfoodPerTourist
+
+--------------------------------------------------------
 ## v1.6.2 07/05/2019 9:44:33 PM
 #### Changed
 - local ResolvePos = function(bld1, bld2)
