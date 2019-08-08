@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated June 26th, 2019
+-- Updated August 7th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -12,7 +12,7 @@ local lf_print = false -- Setup debug printing in local file
 g_ATLoaded = true
 
 local ModDir = CurrentModPath
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 116
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 117
 local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
 local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
@@ -24,21 +24,22 @@ function ATsetupVariables(rocket, init)
 		g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets + 1 -- increment the global counter
 		rocket.AT_enabled              = true   -- var used to turn system on/off
 		rocket.AT_departures           = rocket.AT_departures or 0      -- number of tourists returning to earth, keep departures if cycling button on/off
-		rocket.AT_arriving_tourists    = 0      -- number of tourists picked up from earth
-		rocket.AT_departuretime        = 0      -- gametime var for departure time
-		rocket.AT_have_departures      = false  -- bool var to signify we got departures onnboard
-		rocket.AT_leaving_colonists    = 0      -- var holds the colonists wanting to leave
-		rocket.AT_boarded_colonists    = 0      -- var holds the colonists that boarded
-		rocket.AT_departuretimeText    = ""     -- text representation of gametime var
-		rocket.AT_last_arrival_time    = 0      -- gametime var for last time rocket landed
-		rocket.AT_touristBoundary      = false  -- var holds circle object for tourist boundary
-		rocket.AT_last_voyage_time     = 0      -- gametime var holds last voyage from earth
-		rocket.AT_next_voyage_time     = 0      -- gametime var holds next voyage from earth
-		rocket.AT_next_voyage_timeText = ""     -- text representation of gametime var
-		rocket.AT_status               = false  -- text var holds current status message
-		rocket.AT_depart_thread        = false  -- var holds countdown thread for departures
-		rocket.AT_status_thread        = false  -- var holds status thread if it exists for boarding complete
-		rocket.AT_GenDepartRan         = false  -- var holds status of GenerateDepartures
+		rocket.AT_arriving_tourists    = 0        -- number of tourists picked up from earth
+		rocket.AT_departuretime        = 0        -- gametime var for departure time
+		rocket.AT_have_departures      = false    -- bool var to signify we got departures onnboard
+		rocket.AT_leaving_colonists    = 0        -- var holds the colonists wanting to leave
+		rocket.AT_boarded_colonists    = 0        -- var holds the colonists that boarded
+		rocket.AT_departuretimeText    = ""       -- text representation of gametime var
+		rocket.AT_last_arrival_time    = 0        -- gametime var for last time rocket landed
+		rocket.AT_touristBoundary      = false    -- var holds circle object for tourist boundary
+		rocket.AT_last_voyage_time     = 0        -- gametime var holds last voyage from earth
+		rocket.AT_next_voyage_time     = 0        -- gametime var holds next voyage from earth
+		rocket.AT_next_voyage_timeText = ""       -- text representation of gametime var
+		rocket.AT_status               = false    -- text var holds current status message
+		rocket.AT_depart_thread        = false    -- var holds countdown thread for departures
+		rocket.AT_status_thread        = false    -- var holds status thread if it exists for boarding complete
+		rocket.AT_GenDepartRan         = false    -- var holds status of GenerateDepartures
+		rocket.AT_RecallRadiusMode     = "Mod Config Set" -- mode for recall radius
 	else
 		g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets - 1
 		if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
@@ -62,6 +63,7 @@ function ATsetupVariables(rocket, init)
 	  rocket.AT_status               = nil
 		rocket.AT_GenDepartRan         = nil
 		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
+		rocket.AT_RecallRadiusMode     = nil
 	end -- if init
 end -- ATsetupvariables(state)
 
@@ -270,11 +272,17 @@ local function ATtouristInRangeText(rocket)
 	texts[5] = T{StringIdBase + 134, string.format("5 or more Sols:<right><colonist(%s)><left>", touristBreakdown["5+"])}
 	texts[6] = "<newline>"
 	texts[7] = T{StringIdBase + 135, "<em><center>Local Dome Breakdown<left></em>"}
+
+	-- add the dome names and breakdown
 	for dome, count in pairs(touristDomes) do
 		table.insert(texts, T{StringIdBase + 199, string.format("%s:<right><colonist(%s)><left>", dome, count)})
 		haveDomes = true
 	end -- for dome
-	if not haveDomes then table.insert(texts, T{StringIdBase + 136, "<center>No tourists residing in rocket range"}) end
+	if not haveDomes then table.insert(texts, T{StringIdBase + 136, "<center>No tourists residing in rocket range<left>"}) end
+
+  -- add the recall radius mode
+  texts[#texts+1] = "<newline>"
+  texts[#texts+1] = T{StringIdBase + 137,"Show recall radius: <right><em><tRecallRadius></em><left>", tRecallRadius = rocket.AT_RecallRadiusMode}
 
 	return table.concat(texts, "<newline>")
 end -- ATtouristInRangeText()
@@ -289,7 +297,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.14"
+  local ATControlVer = "v1.15"
   local XT = XTemplates.ipBuilding[1]
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -402,6 +410,7 @@ function OnMsg.ClassesBuilt()
         "Title", T{StringIdBase + 105, "Tourist Rocket Status"},
         "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"},
         "RolloverText", T{StringIdBase + 106, "Tourism rocket is operating a route."},
+        "RolloverHint", T{StringIdBase + 107, "<right_click>Toggle showing the recall radius."},
         "OnContextUpdate", function(self, context)
         	local rocket = context
         	-- check for new vars on existing rockets
@@ -428,6 +437,34 @@ function OnMsg.ClassesBuilt()
           self.idATfundingSection.idATfundingTextResult:SetText(ATcalcTourismDollars())
         end, -- OnContextUpdate
       },{
+      	 PlaceObj("XTemplateFunc", {
+                  "name", "OnMouseButtonDown(self, pos, button)",
+                  "parent", function(parent, context)
+                          return parent.parent
+                  end,
+                  "func", function(self, pos, button)
+                  	local rocket = self.context
+        	          if button == "L" then
+        	          	if lf_print then print("Left Button") end
+        	          	PlayFX("DomeAcceptColonistsChanged", "start", rocket)
+	                  end -- buton L
+	                  if button == "R" then
+	                  	if lf_print then print("Right Button") end
+	                  	PlayFX("DomeAcceptColonistsChanged", "start", rocket)
+        	          	if rocket.AT_RecallRadiusMode == "Mod Config Set" then
+        	          		rocket.AT_RecallRadiusMode = "ON"
+        	          		if not IsValid(rocket.AT_touristBoundary) then ATtoggleTouristBoundary(rocket, true) end
+        	          	elseif rocket.AT_RecallRadiusMode == "ON" then
+        	          		rocket.AT_RecallRadiusMode = "OFF"
+        	          		ATtoggleTouristBoundary(rocket, false)
+        	          	elseif rocket.AT_RecallRadiusMode == "OFF" then
+        	          		rocket.AT_RecallRadiusMode = "Mod Config Set"
+        	          		if g_AT_Options.ATrecallRadius and not IsValid(rocket.AT_touristBoundary) then ATtoggleTouristBoundary(rocket, true) end
+        	          	end -- if rocket
+	                  end -- button R
+                    ObjModified(rocket)
+                  end
+         }),
 
       	 -- Status Section
 			   PlaceObj('XTemplateWindow', {
@@ -442,7 +479,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATstatusText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 107, "Status:"},
+              "Text", T{StringIdBase + 108, "Status:"},
             }),
             -- Status Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -467,7 +504,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATfundingText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 108, "Total funds from tourists:"},
+              "Text", T{StringIdBase + 109, "Total funds from tourists:"},
             }),
             -- Tourism Dollars Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -491,7 +528,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATarrivingText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 109, "Arriving tourist onboard:"},
+              "Text", T{StringIdBase + 110, "Arriving tourist onboard:"},
             }),
             -- Arriving Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -515,7 +552,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATtouristsOnEarthText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 110, "Tourists waiting on Earth:"},
+              "Text", T{StringIdBase + 111, "Tourists waiting on Earth:"},
             }),
             -- Arriving Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -539,7 +576,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATtouristsOnMarsText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 111, "Tourists residing on Mars:"},
+              "Text", T{StringIdBase + 112, "Tourists residing on Mars:"},
             }),
             -- Tourists on Mars Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -563,7 +600,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATdeparturesText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 112, "Departures on rocket:"},
+              "Text", T{StringIdBase + 113, "Departures on rocket:"},
             }),
             -- Departing Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -587,7 +624,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATboardingText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 113, "Departures boarding rocket:"},
+              "Text", T{StringIdBase + 114, "Departures boarding rocket:"},
             }),
             -- Departing Tourists Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -611,7 +648,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATdepartureTimeText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 114, "Next departure:"},
+              "Text", T{StringIdBase + 115, "Next departure:"},
             }),
             -- Departure Time Text Result Section
             PlaceObj("XTemplateTemplate", {
@@ -635,7 +672,7 @@ function OnMsg.ClassesBuilt()
               "__template", "InfopanelText",
               "Id", "idATvoyageTimeText",
               "Margins", box(0, 0, 0, 0),
-              "Text", T{StringIdBase + 115, "Next voyage:"},
+              "Text", T{StringIdBase + 116, "Next voyage:"},
             }),
             -- Voyage Time Text Result Section
             PlaceObj("XTemplateTemplate", {
