@@ -1,4 +1,27 @@
 # Automated Tourism
+## v1.8.0 08/07/2019 10:02:35 PM
+#### Changed
+- upticking AT_departed at colonist entry point
+- changed some syntax on mod cbonfig option for recall radius
+- Rolloverhint to allow for toggle of recall radius show/no show
+- added xTemplateFunc to template to toggle individual recall boundaries
+- added new variable AT_RecallRadiusMode
+
+#### Added
+
+
+#### Removed
+
+#### Fixed Issues
+- departures should uptick since you can toggle AT and have the boarded get zeroed.
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.7.0 07/06/2019 1:11:23 AM
 #### Changed
 - OnMsg.RocketLaunchFromEarth(rocket)

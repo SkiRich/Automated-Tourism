@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated July 6th, 2019
+-- Updated August 7th, 2019
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -131,8 +131,8 @@ function OnMsg.ModConfigReady()
 
     -- ATrecallRadius
     ModConfig:RegisterOption("Automated_Tourism", "ATrecallRadius", {
-        name = T{StringIdBase + 60, "Show tourist recall radius:"},
-        desc = T{StringIdBase + 61, "Show the tourist recall radius circle around the rocket."},
+        name = T{StringIdBase + 60, "Globally show tourist recall radius:"},
+        desc = T{StringIdBase + 61, "Globally show the tourist recall radius circle around the rocket."},
         type = "boolean",
         default = true,
         order = 5
@@ -217,13 +217,13 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
       	-- turn off all recall boundaries
       	local rockets = (UICity and UICity.labels.SupplyRocket) or ""
       	for i = 1, #rockets do
-      		if rockets[i].AT_touristBoundary and IsValid(rockets[i].AT_touristBoundary) then ATtoggleTouristBoundary(rockets[i], false) end
+      		if (rockets[i].AT_RecallRadiusMode == "Mod Config Set") and rockets[i].AT_touristBoundary and IsValid(rockets[i].AT_touristBoundary) then ATtoggleTouristBoundary(rockets[i], false) end
       	end -- for i
       else
       	-- turn on all recall boundaries
       	local rockets = (UICity and UICity.labels.SupplyRocket) or ""
       	for i = 1, #rockets do
-      		if rockets[i].AT_enabled and not rockets[i].AT_touristBoundary and not IsValid(rockets[i].AT_touristBoundary) then ATtoggleTouristBoundary(rockets[i], true) end
+      		if (rockets[i].AT_RecallRadiusMode == "Mod Config Set") and rockets[i].AT_enabled and not rockets[i].AT_touristBoundary and not IsValid(rockets[i].AT_touristBoundary) then ATtoggleTouristBoundary(rockets[i], true) end
       	end -- for i
       end -- if not value
     end -- ATrecallRadius

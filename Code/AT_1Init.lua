@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated July 6th, 2019
+-- Updated August 7th, 2019
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -30,7 +30,7 @@ g_AT_Options = {
 } -- g_AT_Options
 
 -- Save game fixup variables
-g_AT_fixupVer = "v1.0"
+g_AT_fixupVer = "v1.1"
 GlobalVar("g_AT_currentFixupVer", "0")
 
 g_AT_NumOfTouristRockets = 0       -- keeps track of the number of tourist rockets
@@ -137,10 +137,13 @@ local function ATfixupSaves()
 		-- do this once and never again since its fixed going forward in templates
 		local rockets = UICity and UICity.labels.SupplyRocket or empty_table
 		for i = 1, #rockets do
-			if rockets[i].AT_enabled and (rockets[i].status == "launch suspended") and (rockets[i]:GetStoredAmount() > 0) then
-				rockets[i]:ToggleAutoExport()
-				rockets[i]:ReturnStockpiledResources()
-				rockets[i]:ToggleAutoExport()
+			if rockets[i].AT_enabled then
+			  if (rockets[i].status == "launch suspended") and (rockets[i]:GetStoredAmount() > 0) then
+				  rockets[i]:ToggleAutoExport()
+				  rockets[i]:ReturnStockpiledResources()
+				  rockets[i]:ToggleAutoExport()
+				end -- if rockets[i].status == "launch suspended"
+			  if type(rockets[i].AT_RecallRadiusMode) == "nil" then rockets[i].AT_RecallRadiusMode = "Mod Config Set" end
 		  end -- if rockets[i].AT_enabled
 		end -- for i
 	end -- if g_AT_currentFixupVer
@@ -571,6 +574,7 @@ function OnMsg.ClassesGenerate()
 
         -- colonist has boarded rocket
 	    	rocket.AT_boarded_colonists = rocket.AT_boarded_colonists + 1      -- var holds the colonists that boarded
+        rocket.AT_departures = rocket.AT_boarded_colonists -- uptick the departure count now, instead of waiting for takeoff
 
 	    	--@@@msg ColonistLeavingMars, colonist, rocket - fired when any colonist is leaving Mars
 	    	Msg("ColonistLeavingMars", self, rocket)
