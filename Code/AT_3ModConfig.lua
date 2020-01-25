@@ -3,7 +3,7 @@
 -- All rights reserved, duplication and modification prohibited.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated August 7th, 2019
+-- Updated Jan 23rd, 2020
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -132,7 +132,7 @@ function OnMsg.ModConfigReady()
     -- ATrecallRadius
     ModConfig:RegisterOption("Automated_Tourism", "ATrecallRadius", {
         name = T{StringIdBase + 60, "Globally show tourist recall radius:"},
-        desc = T{StringIdBase + 61, "Globally show the tourist recall radius circle around the rocket."},
+        desc = T{StringIdBase + 61, "Globally show the tourist recall radius circle around the rocket.<newline>Individual rocket settings override this setting."},
         type = "boolean",
         default = true,
         order = 5

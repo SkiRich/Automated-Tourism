@@ -1,4 +1,24 @@
 # Automated Tourism
+## v1.8.1 01/25/2020 2:38:25 PM
+#### Changed
+- ModConfig option description for recall radius
+- OnMsg.RocketLanded(rocket) added code for AT_RecallRadiusMode
+
+#### Added
+- Code in OnMsg.RocketLanded(rocket) to check for radius mode first then mod config global option
+
+#### Removed
+
+#### Fixed Issues
+- Landed rockets not respecting setting for tourism boundary radius circle
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.8.0 08/07/2019 10:02:35 PM
 #### Changed
 - upticking AT_departed at colonist entry point
@@ -7,19 +27,8 @@
 - added xTemplateFunc to template to toggle individual recall boundaries
 - added new variable AT_RecallRadiusMode
 
-#### Added
-
-
-#### Removed
-
 #### Fixed Issues
 - departures should uptick since you can toggle AT and have the boarded get zeroed.
-
-#### Open Issues
-
-#### Deprecated
-
-#### Todo
 
 --------------------------------------------------------
 ## v1.7.0 07/06/2019 1:11:23 AM
