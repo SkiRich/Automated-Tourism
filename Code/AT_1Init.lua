@@ -4,6 +4,7 @@
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
 -- Updated August 7th, 2019
+-- Hotfix Jan 25th, 2020
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -267,8 +268,15 @@ function OnMsg.RocketLanded(rocket)
   	rocket.AT_status = "landed"
   	rocket.AT_GenDepartRan = false
 
+    -- Check AT_RecallRadiusMode first
   	-- setup rocket recall tourist boundary
-    if g_AT_Options.ATrecallRadius then ATtoggleTouristBoundary(rocket, true) end
+  	if rocket.AT_RecallRadiusMode and rocket.AT_RecallRadiusMode == "ON" then
+  		ATtoggleTouristBoundary(rocket, true)
+  	elseif rocket.AT_RecallRadiusMode and rocket.AT_RecallRadiusMode == "Mod Config Set" and g_AT_Options.ATrecallRadius then
+  		ATtoggleTouristBoundary(rocket, true)
+  	end -- if rocket.AT_RecallRadiusMode
+
+    -- if g_AT_Options.ATrecallRadius then ATtoggleTouristBoundary(rocket, true) end
 
     -- notification of rocket landed
     local msg = T{StringIdBase + 4, "Arrivals: <count>", count = rocket.AT_arriving_tourists}
