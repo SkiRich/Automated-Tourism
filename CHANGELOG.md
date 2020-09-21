@@ -1,3 +1,12 @@
+## version 09/21/2020 2:01:58 PM
+#### Changed
+- AT_2Panels.lua line 50 test for nil first before execute line 50
+
+#### Fixed Issues
+- Getting error when demolishing rocket that is not a tourism rocket, error line 50 nil compare
+
+
+--------------------------------------------------------
 # Automated Tourism
 ## v1.8.1 01/25/2020 2:38:25 PM
 #### Changed
