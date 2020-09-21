@@ -47,7 +47,7 @@ function ATsetupVariables(rocket, init)
 		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill the status thread if its running
 		rocket.AT_status_thread        = nil
 	  rocket.AT_enabled              = nil
-	  if rocket.AT_departures < 1 then rocket.AT_departures = nil end -- if departures > 0 then keep departures if cycling on/off
+	  if rocket.AT_departures and (rocket.AT_departures < 1) then rocket.AT_departures = nil end -- if departures > 0 then keep departures if cycling on/off
 		rocket.AT_arriving_tourists    = nil
 		rocket.AT_departuretime        = nil
 		rocket.AT_have_departures      = nil
