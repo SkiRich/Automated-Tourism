@@ -606,10 +606,10 @@ function OnMsg.ClassesGenerate()
   -- taken from rocket.lua / Tito its in file SupplyRocket.lua
   -- Update for Tito not needed, same function
   local Old_SupplyRocket_GenerateDepartures = SupplyRocket.GenerateDepartures
-  function SupplyRocket:GenerateDepartures()
+  function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists)
   	-- if not a tourism rocket or we dont have tourism rockets or we dont prevent departures run original code
   	if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
-  		return Old_SupplyRocket_GenerateDepartures(self)
+  		return Old_SupplyRocket_GenerateDepartures(self, count_earthsick, count_tourists)
   	end -- if not self.AT_enabled
 
   	-- if rocket is an AT rocket or ATpreventDepart is false or there is no tourism rockets
@@ -621,7 +621,7 @@ function OnMsg.ClassesGenerate()
   	  	return
   	  end -- if not self.can_fly_colonists
 
-  	  assert(self:IsValidPos())
+  	  --assert(self:IsValidPos())
   	  local domes = self.city.labels.Dome or ""
   	  self.departures = {}
   	  self.boarding = {}
@@ -631,7 +631,7 @@ function OnMsg.ClassesGenerate()
   	  	local dome = domes[i]
   	  	local tested, suitable
   	  	for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
-  	  		if c:CanChangeCommand() and (c.status_effects.StatusEffect_Earthsick or (c.traits.Tourist and c.sols > g_Consts.TouristSolsOnMars)) then
+  	  		if c:CanChangeCommand() and (count_earthsick and c.status_effects.StatusEffect_Earthsick or (count_tourists and c.traits.Tourist and c.sols > g_Consts.TouristSolsOnMars)) then
   	  			if not tested then
   	  				suitable = ATcheckDist(self, dome, max_walk_dist)
   	  			end -- if not tested

@@ -10,12 +10,14 @@ function SupplyRocket:OnDemolish()
 - Colonist:LogStatClear(log, ...)
 - function Colonist:AddToLog
 - local function LogCheck
+- new variables to function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists)
 
 #### Removed
 
 #### Fixed Issues
 - Suicidal tourists due to log issue with logstatclear
 - Tito patch code changes
+- nil check in function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists) line 634
 
 #### Open Issues
 
