@@ -5,6 +5,7 @@
 -- Created May 1st, 2019
 -- Updated August 7th, 2019
 -- Hotfix Jan 25th, 2020
+-- Tito patch fixes March 15th 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -43,7 +44,7 @@ local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 -- count the numbere of AT rockets in play
 local function ATcountATrockets()
 	local ATcount = 0
-	local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+	local rockets = UICity and UICity.labels.SupplyRocket or empty_table  -- current for Tito
 	for i = 1, #rockets do
 		if rockets[i].AT_enabled then ATcount = ATcount + 1 end
 	end -- for i
@@ -136,7 +137,7 @@ local function ATfixupSaves()
 
 		-- fix for stuck rockets waiting to unload cargo
 		-- do this once and never again since its fixed going forward in templates
-		local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+		local rockets = UICity and UICity.labels.SupplyRocket or empty_table   -- current for Tito
 		for i = 1, #rockets do
 			if rockets[i].AT_enabled then
 			  if (rockets[i].status == "launch suspended") and (rockets[i]:GetStoredAmount() > 0) then
@@ -491,32 +492,35 @@ function OnMsg.ClassesGenerate()
     if #tourists > 0 then SelectionArrowAdd(tourists) end
 
 		Old_DroneControl_OnSelected(self)
-	end -- SupplyRocket:OnSelected()
+	end -- DroneControl:OnSelected()
 
 
   -- re-write OnDemolish to make sure vars, threads and other items are killed
-  local Old_SupplyRocket_OnDemolish = SupplyRocket.OnDemolish
-  function SupplyRocket:OnDemolish()
+  -- updated for Tito
+  local Old_RocketBase_OnDemolish = RocketBase.OnDemolish
+  function RocketBase:OnDemolish()
   	local rocket = self
   	if not IsKindOfClasses(rocket, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod") then
   	  -- ATsetButtonStatus(rocket, true) -- reset original buttons back on -- no need to do this since we are in the process of demolishing the rocket
   	  ATsetupVariables(rocket, false) -- clear all AT vars
   	end --if not IsKindOfClasses
-  	return Old_SupplyRocket_OnDemolish(self) -- call original function
-  end -- SupplyRocket:OnDemolish()
+  	return Old_RocketBase_OnDemolish(self) -- call original function
+  end -- RocketBase:OnDemolish()
 
 
   -- rewrite old function to exclude tourist rockets from expeditions
-  local Old_SupplyRocket_IsRocketLanded = SupplyRocket.IsRocketLanded
-  function SupplyRocket:IsRocketLanded()
+  -- updated for Tito Patch
+  local Old_RocketBase_IsRocketLanded = RocketBase.IsRocketLanded
+  function RocketBase:IsRocketLanded()
   	if self.AT_enabled then return false
-  		                 else return Old_SupplyRocket_IsRocketLanded(self) end
-  end -- SupplyRocket:IsRocketLanded()
+  		                 else return Old_RocketBase_IsRocketLanded(self) end
+  end -- RocketBase:IsRocketLanded()
 
   -- duplicate of old IsRocketLanded
-  function SupplyRocket:IsRocketOnMars()
+  -- updated for Tito patch
+  function RocketBase:IsRocketOnMars()
 	  return self.command == "Refuel" or self.command == "WaitLaunchOrder" or self.command == "Unload"
-  end -- SupplyRocket:IsRocketOnMars()
+  end -- RocketBase:IsRocketOnMars()
 
   -- add tourist rocket status to rockets in send expedition view
   local Old_GetRocketExpeditionStatus = GetRocketExpeditionStatus
@@ -599,7 +603,8 @@ function OnMsg.ClassesGenerate()
   -- re-write generate departures to exclude non AT rockets
   -- had to re-write whole code since the delay in finding and calling leavingmars is too variable.
   -- use old code when not AT_enabled
-  -- taken from rocket.lua
+  -- taken from rocket.lua / Tito its in file SupplyRocket.lua
+  -- Update for Tito not needed, same function
   local Old_SupplyRocket_GenerateDepartures = SupplyRocket.GenerateDepartures
   function SupplyRocket:GenerateDepartures()
   	-- if not a tourism rocket or we dont have tourism rockets or we dont prevent departures run original code
@@ -646,6 +651,25 @@ function OnMsg.ClassesGenerate()
   	  self.AT_GenDepartRan = true  -- allow depart thread to continue
   	end -- if self.AT_enabled
   end  -- SupplyRocket:GenerateDepartures()
+
+  --fix for suicidal tourists courtesy choggi
+  local function LogCheck(func, self, log, ...)
+    if log then
+        return func(self, log, ...)
+    end
+  end -- LogCheck
+
+  local Old_Colonist_LogStatClear = Colonist.LogStatClear
+  function Colonist:LogStatClear(log, ...)
+    if log then
+        Old_Colonist_LogStatClear(self, log, ...)
+    end
+  end -- Colonist:LogStatClear(log, ...)
+
+  local Old_Colonist_AddToLog = Colonist.AddToLog
+  function Colonist:AddToLog(log, ...)
+    return LogCheck(Old_Colonist_AddToLog, self, log, ...)
+  end -- Colonist:AddToLog
 
 end -- OnMsg.ClassesGenerate()
 
