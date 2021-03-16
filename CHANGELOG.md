@@ -1,4 +1,32 @@
-## version 09/21/2020 2:01:58 PM
+# Automated Tourism
+## v1.8.3 03/15/2021 9:29:44 PM
+#### Changed
+- replaced the following classes with RocketBase
+local Old_SupplyRocket_IsRocketLanded = SupplyRocket.IsRocketLanded
+function SupplyRocket:IsRocketOnMars()
+function SupplyRocket:OnDemolish()
+
+#### Added
+- Colonist:LogStatClear(log, ...)
+- function Colonist:AddToLog
+- local function LogCheck
+- new variables to function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists)
+
+#### Removed
+
+#### Fixed Issues
+- Suicidal tourists due to log issue with logstatclear
+- Tito patch code changes
+- nil check in function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists) line 634
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
+## v1.8.2 09/21/2020 2:01:58 PM
 #### Changed
 - AT_2Panels.lua line 50 test for nil first before execute line 50
 
@@ -7,7 +35,6 @@
 
 
 --------------------------------------------------------
-# Automated Tourism
 ## v1.8.1 01/25/2020 2:38:25 PM
 #### Changed
 - ModConfig option description for recall radius
