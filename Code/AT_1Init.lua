@@ -652,24 +652,6 @@ function OnMsg.ClassesGenerate()
   	end -- if self.AT_enabled
   end  -- SupplyRocket:GenerateDepartures()
 
-  --fix for suicidal tourists courtesy choggi
-  local function LogCheck(func, self, log, ...)
-    if log then
-        return func(self, log, ...)
-    end
-  end -- LogCheck
-
-  local Old_Colonist_LogStatClear = Colonist.LogStatClear
-  function Colonist:LogStatClear(log, ...)
-    if log then
-        Old_Colonist_LogStatClear(self, log, ...)
-    end
-  end -- Colonist:LogStatClear(log, ...)
-
-  local Old_Colonist_AddToLog = Colonist.AddToLog
-  function Colonist:AddToLog(log, ...)
-    return LogCheck(Old_Colonist_AddToLog, self, log, ...)
-  end -- Colonist:AddToLog
 
 end -- OnMsg.ClassesGenerate()
 
