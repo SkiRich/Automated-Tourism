@@ -1,4 +1,10 @@
 # Automated Tourism
+## v1.8.4 03/17/2021 2:34:46 PM
+
+#### Removed
+- removed all code for colonist suicides since devs put out hotfix for Tito 3/17/2021
+
+--------------------------------------------------------
 ## v1.8.3 03/15/2021 9:29:44 PM
 #### Changed
 - replaced the following classes with RocketBase
