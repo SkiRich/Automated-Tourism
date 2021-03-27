@@ -297,25 +297,44 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.15"
-  local XT = XTemplates.ipBuilding[1]
+  local ATControlVer = "v1.16"
+  local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
 
 
-  --retro fix versioning
+  -- retro fix versioning in old ipBuilding[1] template
+  -- remove if there - Tito changes
+  XT = XTemplates.ipBuilding[1]
   if XT.AT then
-  	if lf_print then print("Retro Fit Check AT Panels in ipBuilding") end
+  	if lf_print then print("Retro Fit Check AT buttonss and panels in ipBuilding") end
   	for i, obj in pairs(XT or empty_table) do
   		if type(obj) == "table" and obj.__context_of_kind == "SupplyRocket" and (
   		 obj.UniqueID == ATButtonID1 or obj.UniqueID == ATSectionID1 ) and
   		 obj.Version ~= ATControlVer then
   			table.remove(XT, i)
-  			if lf_print then print("Removed old AT Panels Class Obj") end
+  			if lf_print then print("Removed old AT buttons and panels ipBuilding") end
   			XT.AT = nil
   		end -- if obj
   	end -- for each obj
   end -- retro fix versioning
+
+  -- retro fix versioning in new customSupplyRocket[1] template
+  -- remove if there and rebuild in xtemplate section
+  XT = XTemplates.customSupplyRocket[1]
+  if XT.AT then
+  	if lf_print then print("Retro Fit Check AT buttons and panels in customSupplyRocket") end
+  	for i, obj in pairs(XT or empty_table) do
+  		if type(obj) == "table" and obj.__context_of_kind == "SupplyRocket" and (
+  		 obj.UniqueID == ATButtonID1 or obj.UniqueID == ATSectionID1 ) and
+  		 obj.Version ~= ATControlVer then
+  			table.remove(XT, i)
+  			if lf_print then print("Removed old AT buittons and panels customSupplyRocket") end
+  			XT.AT = nil
+  		end -- if obj
+  	end -- for each obj
+  end -- retro fix versioning
+
 
   -- build the classes just once per game
   if not XT.AT then
