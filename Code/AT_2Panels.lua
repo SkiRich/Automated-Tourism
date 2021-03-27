@@ -1,9 +1,10 @@
--- Code developed for Incubator
+-- Code developed for Automated Tourism
 -- Author @SkiRich
 -- All rights reserved, duplication and modification prohibited.
+-- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated August 7th, 2019
+-- Updated March 27th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -297,14 +298,14 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.16"
+  local ATControlVer = "v1.17"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
 
 
   -- retro fix versioning in old ipBuilding[1] template
-  -- remove if there - Tito changes
+  -- Tito changes
   XT = XTemplates.ipBuilding[1]
   if XT.AT then
   	if lf_print then print("Retro Fit Check AT buttonss and panels in ipBuilding") end
@@ -390,6 +391,7 @@ function OnMsg.ClassesBuilt()
         if not rocket.AT_enabled then
         	ATsetupVariables(rocket, true)
         	self:SetIcon(iconATButtonOn)
+        	rocket:StopDepartureThread() -- new for Tito there is a departure thread running all the time
         	if ATcountTouristsOnEarth() > 0 then
         		rocket.AT_status = "pickup"
         	else
@@ -402,6 +404,7 @@ function OnMsg.ClassesBuilt()
         else
         	rocket.AT_enabled = false
         	self:SetIcon(iconATButtonOff)
+        	rocket:StartDepartureThread() -- new for Tito there is a departure thread running all the time
         	if rocket.auto_export then rocket:ToggleAutoExport() end
         	ATsetupVariables(rocket, false)
         end -- if not rocket.AT_enabled

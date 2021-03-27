@@ -1,19 +1,20 @@
--- Code developed for Incubator
+-- Code developed for Automated Tourism
 -- Author @SkiRich
 -- All rights reserved, duplication and modification prohibited.
+-- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated August 7th, 2019
 -- Hotfix Jan 25th, 2020
 -- Tito patch fixes March 15th 2021
+-- Update March 25th, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
 
-local lf_printcolonist = false -- setup debug colonist leaving
+local lf_printcolonist = true -- setup debug colonist leaving
                                -- Use Msg("ToggleLFPrint", "AT", "colonist")
 
-local lf_print = false -- Setup debug printing in local file
+local lf_print = true -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
                        -- use Msg("ToggleLFPrint", "AT") to toggle
 
@@ -173,6 +174,7 @@ local ResolvePos = function(bld1, bld2)
 end
 
 -- rewrite of CheckDist which is in dome.lua but is a local ... boo-hiss
+-- called in panels so is global now
 function ATcheckDist(bld1, bld2, distance)
   -- local CheckDist = function(bld1, bld2)
   -- from _GameConst.lua
@@ -201,7 +203,8 @@ function ATcheckDist(bld1, bld2, distance)
     has_path = false
   end
   if lf_printdistance then print("--- ATcheckDist result: ", has_path) end
-  return has_path or false, len
+  -- return has_path or false, len
+  return has_path or false
 end -- ATcheckDist(bld1, bld2)
 
 
@@ -234,6 +237,10 @@ function OnMsg.RocketLaunched(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Mars: ", rocket.name) end
 
 	if rocket.AT_enabled then
+		-- fix already running tourism rockets for Tito fuckups
+		-- delete departure thread if its running, should not be on return trip from earth
+		rocket:StopDepartureThread() -- new for Tito there is a departure thread running all the time
+
      -- turn off tourist recall boundary
     ATtoggleTouristBoundary(rocket, false)
     rocket.AT_departuretimeText = ""
@@ -293,7 +300,8 @@ function OnMsg.RocketLanded(rocket)
   		rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket")
 
        -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it here
-       -- it is called after all colonists disembark
+       -- it is called in the refuel code
+       --  I rewrote the start thread function
 
       if rocket.AT_arriving_tourists > 0 then ATflashStatus(rocket, "disembark", "landed", true) end
 
@@ -302,13 +310,14 @@ function OnMsg.RocketLanded(rocket)
 
       -- check AT_GenDepartRan the var, which is set in the new GenerateDepartures function
       while not rocket.AT_GenDepartRan do
-      	Sleep(500) -- wait a moment to check if GenerateDepartures finished
+      	Sleep(100) -- wait a moment to check if GenerateDepartures finished
       end -- while rocket.AT_GenDepartRan
       rocket.AT_GenDepartRan = false
+      rocket:StopDepartureThread() -- New for Tito, added here in case the existing rocket is running it, should not be
 
       -- check if we still got arriving passengers
       if rocket.cargo and rocket.cargo[1] and rocket.cargo[1].class == "Passengers" then
-      	-- cargo will nil out when passengers all debark
+      	-- cargo will nil out when passengers all disembark
       	while rocket.cargo do
       		Sleep(1000) -- wait a moment and check to make sure passengers get off
       	end -- while
@@ -337,7 +346,7 @@ function OnMsg.RocketLanded(rocket)
   		  -- call tourists to rocket
   		  ATflashStatus(rocket, "checkdepart", "waitdepart", true)
   		  rocket.departures = nil -- nil out departures to have GenerateDepartures execute
-  		  rocket:GenerateDepartures()
+  		  rocket:GenerateDepartures(true, true) -- count the earthsick and the tourists
   		  -- reset departure time and have_departures if there are departures
         -- check the var, which is set in the new GenerateDepartures function
         while not rocket.AT_GenDepartRan do
@@ -474,6 +483,36 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 end -- OnMsg.RocketLaunchFromEarth(rocket)
 
 
+----------------------------------------------------- ClassesBuilt () ------------------------------------------------------------
+function OnMsg.ClassesBuilt()
+
+	-- god damn it they forgot another function - fuckers
+	-- not a local
+	function SupplyRocket:OnModifiableValueChanged(prop, old_val, new_val)
+	  return RocketBase.OnModifiableValueChanged(self, prop, old_val, new_val)
+  end -- function SupplyRocket:OnModifiableValueChanged
+
+	-- fix for broken source code
+  local Old_SupplyRocket_UIOpenTouristOverview = SupplyRocket.UIOpenTouristOverview
+  function SupplyRocket:UIOpenTouristOverview(...)
+
+  	local tourists = {}
+  	local boarded = self.boarded or ""
+  	for i = 1, #boarded do
+  		local colonist = self.boarded[i]
+  		if colonist.traits.Tourist then
+  			table_insert(tourists, colonist)
+  		end
+  	end
+  	HolidayRating:OpenTouristOverview{
+  		rocket_name = Untranslated(self.name),
+  		colonists = tourists,
+  	}
+  end -- SupplyRocket:UIOpenTouristOverview(...)
+
+end -- OnMsg.ClassesBuilt()
+
+
 ------------------------------------------------------ ClassesGenerate() ----------------------------------------
 function OnMsg.ClassesGenerate()
 
@@ -516,13 +555,16 @@ function OnMsg.ClassesGenerate()
   		                 else return Old_RocketBase_IsRocketLanded(self) end
   end -- RocketBase:IsRocketLanded()
 
+
   -- duplicate of old IsRocketLanded
   -- updated for Tito patch
   function RocketBase:IsRocketOnMars()
 	  return self.command == "Refuel" or self.command == "WaitLaunchOrder" or self.command == "Unload"
   end -- RocketBase:IsRocketOnMars()
 
+
   -- add tourist rocket status to rockets in send expedition view
+  -- from PlanetaryView.lua
   local Old_GetRocketExpeditionStatus = GetRocketExpeditionStatus
   function GetRocketExpeditionStatus(rocket)
     if rocket.AT_enabled then
@@ -547,6 +589,7 @@ function OnMsg.ClassesGenerate()
 
 	    local reached
 	    self:PushDestructor(function(self)
+	    	-- why would the new devs remove the assert here - dumbasses
 		    assert(self.command == "Die", "unexpected command (" .. self.command .. ") breaking colonist boarding sequence")
 		    self.leaving = false
 		    rocket.AT_leaving_colonists = rocket.AT_leaving_colonists - 1  -- remove from count
@@ -559,6 +602,10 @@ function OnMsg.ClassesGenerate()
 	    	self.leaving = false
 	    	rocket.AT_leaving_colonists = rocket.AT_leaving_colonists - 1  -- remove from count
 	    	table.remove_entry(rocket.departures, self)
+	    	if self.traits.Tourist then
+          table.insert(rocket.boarded, self)
+          table.remove_entry(g_OverstayingTourists, self)
+        end -- if self.traits.Tourist
 	    	return
 	    end -- self:GotoBuildingSpot
 
@@ -600,21 +647,40 @@ function OnMsg.ClassesGenerate()
   end -- Colonist:LeavingMars(rocket)
 
 
+
+  -- new for Tito
+  -- re-write RocketBase:StartDepartureThread()
+  -- its called during refueling and is very annoying its now a thread.
+  -- putting it back to one call only for Tourism rockets
+  -- plus they fucked it up with a generate departure call twice
+  local Old_RocketBase_StartDepartureThread = RocketBase.StartDepartureThread
+  function RocketBase:StartDepartureThread()
+  	if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
+  		if lf_print then print("- StartDepartureThread executing for non AT rocket -") end
+  		return Old_RocketBase_StartDepartureThread(self)
+  	end -- if not self.AT_enabled
+  	if lf_print then print("- StartDepartureThread executing once for AT rocket -") end
+    self.departure_thread = false
+    self:GenerateDepartures(true, true) -- earthsick and tourists
+  end --function RocketBase:StartDepartureThread()
+
+
+
   -- re-write generate departures to exclude non AT rockets
   -- had to re-write whole code since the delay in finding and calling leavingmars is too variable.
   -- use old code when not AT_enabled
   -- taken from rocket.lua / Tito its in file SupplyRocket.lua
-  -- Update for Tito not needed, same function
+  -- Update for Tito
   local Old_SupplyRocket_GenerateDepartures = SupplyRocket.GenerateDepartures
   function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists)
-  	-- if not a tourism rocket or we dont have tourism rockets or we dont prevent departures run original code
+  	-- if not a tourism rocket or we dont have tourism rockets or we dont prevent departures - run original code
   	if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
   		return Old_SupplyRocket_GenerateDepartures(self, count_earthsick, count_tourists)
   	end -- if not self.AT_enabled
 
   	-- if rocket is an AT rocket or ATpreventDepart is false or there is no tourism rockets
   	if self.AT_enabled then
-  	  if lf_print then print(string.format("--- GenerateDepartures is running on rocket %s --- ", self.name)) end
+  	  if lf_print then print(string.format("--- GenerateDepartures is running on rocket %s - Count Earthsick: %s   Count Tourists: %s   --- ", self.name, tostring(count_earthsick), tostring(count_tourists))) end
 
   	  if not self.can_fly_colonists or self.departures then -- for compatibility
   	  	self.AT_GenDepartRan = true  -- allow depart thread to continue
@@ -625,19 +691,33 @@ function OnMsg.ClassesGenerate()
   	  local domes = self.city.labels.Dome or ""
   	  self.departures = {}
   	  self.boarding = {}
+  	  self.boarded = {}    -- new for Tito
+  	  local domes = self.city.labels.Dome or ""
+  	  local earthsick = {} -- new for Tito
+      local tourists = {}  -- new for Tito
   	  local list = {}
   	  local max_walk_dist = g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist
+  	  if lf_print then print("- Checking for suitable colonists to leave") end
   	  for i = 1, #domes do
   	  	local dome = domes[i]
-  	  	local tested, suitable
+  	  	local suitable
+  	  	if lf_print then print("- Checking dome: "..dome.name) end
   	  	for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
-  	  		if c:CanChangeCommand() and (count_earthsick and c.status_effects.StatusEffect_Earthsick or (count_tourists and c.traits.Tourist and c.sols > g_Consts.TouristSolsOnMars)) then
-  	  			if not tested then
-  	  				suitable = ATcheckDist(self, dome, max_walk_dist)
-  	  			end -- if not tested
+  	  		if c:CanChangeCommand() and (count_earthsick and c.status_effects.StatusEffect_Earthsick or (count_tourists and c.traits.Tourist and c.sols > g_Consts.TouristSolsOnMarsMin)) then
+  	  			if lf_print then print("- Tourist/Earthsick passed Check now testing distance") end
+  	  			suitable = ATcheckDist(self, dome, max_walk_dist)
+  	  			if lf_print then print("- CP1 reached") end
   	  			if suitable then
+  	  				if lf_print then print("- CP2 Suitable reached") end
   	  				list[#list + 1] = c
+  	  				if c.traits.Tourist then
+  	  					tourists[#tourists + 1] = c
+  	  				else
+  	  					earthsick[#earthsick + 1] = c
+  	  				end -- if c.traits.Tourist
   	  				c:SetCommand("LeavingMars", self)
+  	  			else
+  	  				if lf_print then print("- Tourist/Earthsick FAILED testing distance") end
   	  			end -- if suitable
   	  		end -- if c:CanChangeCommand
   	  	end -- for _
@@ -645,17 +725,23 @@ function OnMsg.ClassesGenerate()
 
   	  if #list > 0 then
   	  	self.AT_leaving_colonists = #list -- set the expected colonists that are leaving on tourism rocket
-  	  	AddOnScreenNotification("LeavingMars", false, {colonists_count = #list}, list)
+  	  	if count_earthsick and #earthsick > 0 then
+          AddOnScreenNotification("LeavingMars", false, {colonists_count = #earthsick}, earthsick)
+        end -- if count_earthsick
+        if count_tourists and #tourists > 0 then
+          AddOnScreenNotification("LeavingMarsTourists", false, {tourists_count = #tourists}, tourists)
+          PlayFX("UINotificationResearchComplete") -- add some noise, jeez the devs couldnt be bothered for some soundfx here.
+        end -- if count_tourists
+  	  	--AddOnScreenNotification("LeavingMars", false, {colonists_count = #list}, list)
   	  end -- if #list
 
   	  self.AT_GenDepartRan = true  -- allow depart thread to continue
   	end -- if self.AT_enabled
   end  -- SupplyRocket:GenerateDepartures()
 
-
 end -- OnMsg.ClassesGenerate()
 
-
+-----------------------------------------------------------------------------------------------------------------------------------------
 function OnMsg.ToggleLFPrint(modname, lfvar)
 	-- use Msg("ToggleLFPrint", "AT") to toggle
 	if modname == "AT" and (not lfvar) then

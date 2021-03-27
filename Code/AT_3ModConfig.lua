@@ -1,6 +1,7 @@
--- Code developed for Incubator
+-- Code developed for Automated Tourism
 -- Author @SkiRich
 -- All rights reserved, duplication and modification prohibited.
+-- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
 -- Updated Jan 23rd, 2020

@@ -2,19 +2,48 @@
 ## v1.9.0 03/26/2021 9:22:14 PM
 #### Changed
 - Moved templates from ipBuilding[1] to customSupplyRocket[1] so I could rearrange button
+- ATcheckDist(bld1, bld2)  only needed to return one parameter.
+- OnMsg.RocketLaunched(rocket)  added:
+  - added rocket:StopDepartureThread() -- just in case fix to make sure thread is dead.
+  - shrunk the sleep thread time for faster catch
+  - added parameters to rocket:GenerateDepartures(true, true)
+
+- function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists)
+  - added various Tito variables and code
+
+- AT Panels moved from ipBuilding to customSupplyRocket
+ - fix button position
+ - stop and start departure threads with button
+
+- various cosmetic things and better notes
 
 #### Added
+- function SupplyRocket:UIOpenTouristOverview(...) -- rewrite to fix
+- function SupplyRocket:OnModifiableValueChanged(prop, old_val, new_val)
+  - fucking devs forgot to add this to the new code.  assholes
 
-#### Removed
+- function SupplyRocket:UIOpenTouristOverview(...)
+ - fix for broken code released by said assholes
+
+- function Colonist:LeavingMars(rocket)
+ - added some new stuff from tito for Overstaying colonists
+
+- function RocketBase:StartDepartureThread() re-write
+ - needed to intercept this to return it to old behaviour prior to tito for tourism rockets
 
 #### Fixed Issues
 - button off screen
+- fix for broken source code from devs on Tourist Overview screen
+- fixed no departing tourist issue when AT is running
 
 #### Open Issues
-
-#### Deprecated
+- fix payment system
 
 #### Todo
+- Investigate can_fly_colonists
+- Add in new satisfaction overview
+- change status icons
+- change status secttion
 
 --------------------------------------------------------
 ## v1.8.4 03/17/2021 2:34:46 PM
