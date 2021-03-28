@@ -778,10 +778,7 @@ function OnMsg.ClassesGenerate()
   	end -- if self.AT_enabled
   end  -- SupplyRocket:GenerateDepartures()
 
-<<<<<<< HEAD
-=======
 
->>>>>>> develop
 end -- OnMsg.ClassesGenerate()
 
 -----------------------------------------------------------------------------------------------------------------------------------------
