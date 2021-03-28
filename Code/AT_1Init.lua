@@ -6,15 +6,15 @@
 -- Created May 1st, 2019
 -- Hotfix Jan 25th, 2020
 -- Tito patch fixes March 15th 2021
--- Update March 25th, 2021
+-- Update March 27th, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
 
-local lf_printcolonist = true -- setup debug colonist leaving
+local lf_printcolonist = false -- setup debug colonist leaving
                                -- Use Msg("ToggleLFPrint", "AT", "colonist")
 
-local lf_print = true -- Setup debug printing in local file
+local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
                        -- use Msg("ToggleLFPrint", "AT") to toggle
 
@@ -45,7 +45,7 @@ local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 -- count the numbere of AT rockets in play
 local function ATcountATrockets()
 	local ATcount = 0
-	local rockets = UICity and UICity.labels.SupplyRocket or empty_table  -- current for Tito
+	local rockets = UICity and UICity.labels.SupplyRocket or empty_table  -- current for Tourism patch
 	for i = 1, #rockets do
 		if rockets[i].AT_enabled then ATcount = ATcount + 1 end
 	end -- for i
@@ -221,13 +221,19 @@ end -- OnMsg.LoadGame()
 function OnMsg.RocketReachedEarth(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Reached Earth: ", rocket.name) end
 
+  -- run this regardless of AT status - doesnt hurt since originally it runs when launching a rocket from mars
+  rocket:ClearDepartures(true) -- true set here to postpone clearing the vars so we can still use the UIOpenTouristOverview
+
 	if rocket.AT_enabled then
      -- clear departure variables
     rocket.AT_departures = 0
-		rocket.AT_leaving_colonists    = 0      -- var holds the colonists wanting to leave
-		rocket.AT_boarded_colonists    = 0      -- var holds the colonists that boarded
+		rocket.AT_leaving_colonists = 0      -- var holds the colonists wanting to leave
+		rocket.AT_boarded_colonists = 0      -- var holds the colonists that boarded
 	elseif rocket.AT_departures then
-		rocket.AT_departures = nil -- remove variable if there were departures on a non AT rocket, once it reaches earth
+		-- remove variables if there were departures on a non AT rocket, once it reaches earth
+		rocket.AT_departures = nil
+		rocket.AT_leaving_colonists = nil
+		rocket.AT_boarded_colonists = nil
 	end -- if rocket.AT_enabled
 
 end -- OnMsg.RocketReachedEarth(rocket)
@@ -239,7 +245,7 @@ function OnMsg.RocketLaunched(rocket)
 	if rocket.AT_enabled then
 		-- fix already running tourism rockets for Tito fuckups
 		-- delete departure thread if its running, should not be on return trip from earth
-		rocket:StopDepartureThread() -- new for Tito there is a departure thread running all the time
+		rocket:StopDepartureThread() -- new for Tourism patch there is a departure thread running all the time, just in case put this here
 
      -- turn off tourist recall boundary
     ATtoggleTouristBoundary(rocket, false)
@@ -313,7 +319,7 @@ function OnMsg.RocketLanded(rocket)
       	Sleep(100) -- wait a moment to check if GenerateDepartures finished
       end -- while rocket.AT_GenDepartRan
       rocket.AT_GenDepartRan = false
-      rocket:StopDepartureThread() -- New for Tito, added here in case the existing rocket is running it, should not be
+      rocket:StopDepartureThread() -- New for tourism patch, added here in case the existing rocket is running it, should not be
 
       -- check if we still got arriving passengers
       if rocket.cargo and rocket.cargo[1] and rocket.cargo[1].class == "Passengers" then
@@ -492,23 +498,6 @@ function OnMsg.ClassesBuilt()
 	  return RocketBase.OnModifiableValueChanged(self, prop, old_val, new_val)
   end -- function SupplyRocket:OnModifiableValueChanged
 
-	-- fix for broken source code
-  local Old_SupplyRocket_UIOpenTouristOverview = SupplyRocket.UIOpenTouristOverview
-  function SupplyRocket:UIOpenTouristOverview(...)
-
-  	local tourists = {}
-  	local boarded = self.boarded or ""
-  	for i = 1, #boarded do
-  		local colonist = self.boarded[i]
-  		if colonist.traits.Tourist then
-  			table_insert(tourists, colonist)
-  		end
-  	end
-  	HolidayRating:OpenTouristOverview{
-  		rocket_name = Untranslated(self.name),
-  		colonists = tourists,
-  	}
-  end -- SupplyRocket:UIOpenTouristOverview(...)
 
 end -- OnMsg.ClassesBuilt()
 
@@ -534,6 +523,26 @@ function OnMsg.ClassesGenerate()
 	end -- DroneControl:OnSelected()
 
 
+	-- fix for broken source code
+  local Old_SupplyRocket_UIOpenTouristOverview = SupplyRocket.UIOpenTouristOverview
+  function SupplyRocket:UIOpenTouristOverview(reward_info)
+
+  	local tourists = {}
+  	local boarded = self.boarded or ""
+  	for i = 1, #boarded do
+  		local colonist = self.boarded[i]
+  		if colonist.traits.Tourist then
+  			table.insert(tourists, colonist)
+  		end -- if
+  	end -- for i
+  	reward_info = {
+  		rocket_name = Untranslated(self.name),
+  		colonists = tourists,
+  	} -- reward_info
+  	HolidayRating:OpenTouristOverview(reward_info)
+  end -- SupplyRocket:UIOpenTouristOverview(reward_info)
+
+
   -- re-write OnDemolish to make sure vars, threads and other items are killed
   -- updated for Tito
   local Old_RocketBase_OnDemolish = RocketBase.OnDemolish
@@ -557,7 +566,7 @@ function OnMsg.ClassesGenerate()
 
 
   -- duplicate of old IsRocketLanded
-  -- updated for Tito patch
+  -- updated for Tourism patch
   function RocketBase:IsRocketOnMars()
 	  return self.command == "Refuel" or self.command == "WaitLaunchOrder" or self.command == "Unload"
   end -- RocketBase:IsRocketOnMars()
@@ -589,8 +598,6 @@ function OnMsg.ClassesGenerate()
 
 	    local reached
 	    self:PushDestructor(function(self)
-	    	-- why would the new devs remove the assert here - dumbasses
-		    assert(self.command == "Die", "unexpected command (" .. self.command .. ") breaking colonist boarding sequence")
 		    self.leaving = false
 		    rocket.AT_leaving_colonists = rocket.AT_leaving_colonists - 1  -- remove from count
 		    table.remove_entry(rocket.departures, self)
@@ -605,6 +612,8 @@ function OnMsg.ClassesGenerate()
 	    	if self.traits.Tourist then
           table.insert(rocket.boarded, self)
           table.remove_entry(g_OverstayingTourists, self)
+          DoneObject(self)
+          Msg("ColonistLeavingMars", self, rocket)
         end -- if self.traits.Tourist
 	    	return
 	    end -- self:GotoBuildingSpot
@@ -613,7 +622,6 @@ function OnMsg.ClassesGenerate()
 	    self:PushDestructor(function(self)
 	    	-- if the rocket is still waiting for something, hop on
 	    	if lf_printcolonist then print(string.format("Colonist leaving on rocket: %s", rocket.name)) end
-
 	    	table.remove_entry(rocket.departures, self)
 	    	table.insert(rocket.boarding, self)
 
@@ -621,14 +629,22 @@ function OnMsg.ClassesGenerate()
 
 	    	-- remove from boarding list
 	    	table.remove_entry(rocket.boarding, self)
+        table.insert(rocket.boarded, self)
 
 	    	SelectionRemove(self) --deselect this colonist (mantis:0130871)
+	    	table.remove_entry(g_OverstayingTourists, self)
+
+	    	-- make two new tourists for every one that leaves
+	    	-- deprected since HolidayRating:RewardApplicants(rating, tourist) now generates new applicants based on ratings
+	    	--[[
 	    	if self.traits.Tourist then
 	    		local tourist1 = GenerateApplicant(false, self.city)
 	    		tourist1.traits.Tourist = true
 	    		local tourist2 = GenerateApplicant(false, self.city)
 	    		tourist2.traits.Tourist = true
 	    	end -- if self
+	    	]]--
+
 	    	DoneObject(self)
 
         -- colonist has boarded rocket
@@ -647,8 +663,22 @@ function OnMsg.ClassesGenerate()
   end -- Colonist:LeavingMars(rocket)
 
 
+  -- re-write so we can intercept code
+  -- run this once rocket reaches earth
+  -- arrive_on_earth is for AT to execute only when reaching earth, not in original code
+  local Old_RocketBase_ClearDepartures = RocketBase.ClearDepartures
+  function RocketBase:ClearDepartures(arrive_on_earth)
+  	if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
+  		return Old_RocketBase_ClearDepartures(self)
+  	end -- if not self.AT_enabled
+  	if arrive_on_earth then
+      self.departures = nil
+      self.boarding = nil
+      self.boarded = nil
+    end -- if arrive_on_earth
+  end -- function RocketBase:ClearDepartures()
 
-  -- new for Tito
+
   -- re-write RocketBase:StartDepartureThread()
   -- its called during refueling and is very annoying its now a thread.
   -- putting it back to one call only for Tourism rockets
@@ -660,8 +690,8 @@ function OnMsg.ClassesGenerate()
   		return Old_RocketBase_StartDepartureThread(self)
   	end -- if not self.AT_enabled
   	if lf_print then print("- StartDepartureThread executing once for AT rocket -") end
-    self.departure_thread = false
-    self:GenerateDepartures(true, true) -- earthsick and tourists
+    if not IsValidThread(self.departure_thread) then self.departure_thread = false end -- cosmetic
+    if self.AT_enabled then self:GenerateDepartures(true, true) end -- earthsick and tourists but only for AT rockets
   end --function RocketBase:StartDepartureThread()
 
 
@@ -682,16 +712,25 @@ function OnMsg.ClassesGenerate()
   	if self.AT_enabled then
   	  if lf_print then print(string.format("--- GenerateDepartures is running on rocket %s - Count Earthsick: %s   Count Tourists: %s   --- ", self.name, tostring(count_earthsick), tostring(count_tourists))) end
 
-  	  if not self.can_fly_colonists or self.departures then -- for compatibility
+      -- foreign trade rockets, refugee rockets, and trade rockets cannot fly colonists so they are always can_fly_colonists = false
+      -- self.departures is still unknown,  they seem to add and remove them in Colonist:LeavingMars
+  	  if not self.can_fly_colonists or self.departures then
   	  	self.AT_GenDepartRan = true  -- allow depart thread to continue
-  	  	return
+  	  	return -- dont gather departures now
   	  end -- if not self.can_fly_colonists
 
-  	  --assert(self:IsValidPos())
   	  local domes = self.city.labels.Dome or ""
-  	  self.departures = {}
-  	  self.boarding = {}
-  	  self.boarded = {}    -- new for Tito
+  	  --setup variables
+  	  if not self.departures then
+  	    self.departures = {}
+  	  end -- if not self
+  	  if not self.boarding then
+  	    self.boarding = {}
+  	  end -- if not self
+  	  if not self.boarded then
+  	    self.boarded = {}
+  	  end -- if not self
+
   	  local domes = self.city.labels.Dome or ""
   	  local earthsick = {} -- new for Tito
       local tourists = {}  -- new for Tito

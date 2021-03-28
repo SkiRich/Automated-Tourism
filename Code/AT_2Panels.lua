@@ -18,6 +18,10 @@ local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
 local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
 local iconATSection     = ModDir.."UI/Icons/ATSection.png"
+local iconTourist       = ModDir.."UI/Icons/ATtourist.png"
+local iconClock         = ModDir.."UI/Icons/ATclock.png"
+local imageTourist      = table.concat({"<image ", iconTourist, " 1000>"})
+local imageClock        = table.concat({"<image ", iconClock, " 1300>"})
 
 --  setup or tear down all the AT variables in a rocket
 function ATsetupVariables(rocket, init)
@@ -209,12 +213,13 @@ function ATflashStatus(rocket, status1, status2, enable)
 end -- ATflashStatus(rocket, status1, status2)
 
 -- calculate funding from tourism, return string
+-- added new celebrityFunds tourism
 local function ATcalcTourismDollars()
-	local tourismFunds = (UICity and UICity.funding_gain_total.Tourist) or 0
+	local tourismFunds = UICity and UICity.funding_gain_total.Tourist or 0
 	local totalFunds = 0
 	local denom = ""
 	if tourismFunds > 0 then
-		totalFunds = (0.00 + tourismFunds) / const.ResourceScale / 1000
+		totalFunds = ((0.00 + tourismFunds) / const.ResourceScale) / 1000
 		if totalFunds >= 1000 then
 			totalFunds = totalFunds / 1000
 			denom = "B"
@@ -235,8 +240,8 @@ local function ATcalcTouristsInRange(rocket)
   local list = {}
   local touristDomes = {}
   local touristBreakdown = {
-  	["1-4"] = 0,
-  	["5+"] = 0,
+  	["1-5"] = 0,
+  	["6+"] = 0,
   }
   local max_walk_dist = g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist
   for i = 1, #domes do
@@ -250,8 +255,8 @@ local function ATcalcTouristsInRange(rocket)
   			if not touristDomes[dome.name] then touristDomes[dome.name] = 0 end
   			touristDomes[dome.name] = touristDomes[dome.name] + 1
   			list[#list + 1] = c
-  			if c.sols < 5 then touristBreakdown["1-4"] = touristBreakdown["1-4"] + 1
-  				            else touristBreakdown["5+"] = touristBreakdown["5+"] + 1 end
+  			if c.sols < 6 then touristBreakdown["1-5"] = touristBreakdown["1-5"] + 1
+  				            else touristBreakdown["6+"] = touristBreakdown["6+"] + 1 end
   		end -- if suitable
   	end -- for _
   end -- for i
@@ -269,8 +274,8 @@ local function ATtouristInRangeText(rocket)
 	texts[1] = T{StringIdBase + 130, "<em><center>Tourists Residing In Rocket Range<left></em>"}
 	texts[2] = T{StringIdBase + 131, string.format("Total in range:<right><colonist(%s)><left><newline>", #list)}
 	texts[3] = T{StringIdBase + 132, "<em><center>Sols On Mars Breakdown<left></em>"}
-	texts[4] = T{StringIdBase + 133, string.format("1 to 4 Sols:<right><colonist(%s)><left>", touristBreakdown["1-4"])}
-	texts[5] = T{StringIdBase + 134, string.format("5 or more Sols:<right><colonist(%s)><left>", touristBreakdown["5+"])}
+	texts[4] = T{StringIdBase + 133, string.format("1 to 5 Sols:<right><colonist(%s)><left>", touristBreakdown["1-5"])}
+	texts[5] = T{StringIdBase + 134, string.format("6 or more Sols:<right><colonist(%s)><left>", touristBreakdown["6+"])}
 	texts[6] = "<newline>"
 	texts[7] = T{StringIdBase + 135, "<em><center>Local Dome Breakdown<left></em>"}
 
@@ -289,6 +294,37 @@ local function ATtouristInRangeText(rocket)
 end -- ATtouristInRangeText()
 
 
+-- start all the departure threads if posssible
+local function ATStartDepartureThreads()
+	-- start the departure threads only if there are no more AT rockets
+	-- only for landed supply rockets
+	if g_AT_NumOfTouristRockets < 1 then
+		local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+	  for i = 1, #rockets do
+		  if rockets[i]:IsRocketOnMars() and rockets[i].can_fly_colonists and
+		  (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod"))
+		  then rockets[i]:StartDepartureThread() end
+	  end -- for i
+	end -- if g_AT_NumOfTouristRockets
+end -- function ATStartDepartureThreads()
+
+
+-- stop all the departure threads
+local function ATStopDepartureThreads(rocket)
+	-- kill the current rocket thread immediatly
+	if rocket then rocket:StopDepartureThread() end -- new for tourism patch there is a departure thread running all the time
+
+	-- check all landed rockets for thread and kill
+	local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+	for i = 1, #rockets do
+		if rockets[i]:IsRocketOnMars() then
+			rockets[i]:StopDepartureThread()
+			if not IsValidThread(rockets[i].departure_thread) then rockets[i].departure_thread = false end -- easy to spot in examine
+		end -- for i
+	end -- for i
+end -- function ATStopDepartureThreads(rocket)
+
+
 ----------------------- OnMsg -------------------------------------------------------------------------------
 
 
@@ -298,7 +334,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.17"
+  local ATControlVer = "v1.19"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -342,14 +378,14 @@ function OnMsg.ClassesBuilt()
     XT.AT = true
     local foundsection, idx
 
-    -- alter the ipBuilding template for AT
+    -- alter the infopanel template for AT
     -- alter the AT button panel
     XT[#XT + 1] = PlaceObj("XTemplateTemplate", {
     	"Version", ATControlVer,
     	"UniqueID", ATButtonID1,
     	"Id", "idATbutton",
       "__context_of_kind", "SupplyRocket",
-      "__condition", function (parent, context) return g_ATLoaded and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+      "__condition", function (parent, context) return g_ATLoaded and context.can_fly_colonists and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"}, -- Title Used for sections only
@@ -391,7 +427,7 @@ function OnMsg.ClassesBuilt()
         if not rocket.AT_enabled then
         	ATsetupVariables(rocket, true)
         	self:SetIcon(iconATButtonOn)
-        	rocket:StopDepartureThread() -- new for Tito there is a departure thread running all the time
+        	ATStopDepartureThreads(rocket) -- new for tourism patch there is a departure thread running all the time
         	if ATcountTouristsOnEarth() > 0 then
         		rocket.AT_status = "pickup"
         	else
@@ -404,9 +440,9 @@ function OnMsg.ClassesBuilt()
         else
         	rocket.AT_enabled = false
         	self:SetIcon(iconATButtonOff)
-        	rocket:StartDepartureThread() -- new for Tito there is a departure thread running all the time
         	if rocket.auto_export then rocket:ToggleAutoExport() end
         	ATsetupVariables(rocket, false)
+        	ATStartDepartureThreads() -- there is a departure thread running all the time for regular rockets
         end -- if not rocket.AT_enabled
 
      	  ObjModified(self)
@@ -447,11 +483,11 @@ function OnMsg.ClassesBuilt()
         	end -- not self.cxROtext
 
         	self.idATstatusSection.idATstatusTextResult:SetText(ATUpdateStatusText(rocket.AT_status or "idle"))
-          self.idATtouristSection.idATarrivingTextResult:SetText(T{StringIdBase + 199, "<colonist(AT_arriving_tourists)>"})
-          self.idATtouristsOnEarthSection.idATtouristsOnEarthTextResult:SetText(T{StringIdBase + 199, "<colonist(touristsOnEarth)>", touristsOnEarth = ATcountTouristsOnEarth()})
-          self.idATtouristsOnMarsSection.idATtouristsOnMarsTextResult:SetText(T{StringIdBase + 199, "<colonist(touristsOnMars)>", touristsOnMars = ATcountTouristsOnMars()})
-          self.idATdeparturesSection.idATdeparturesTextResult:SetText(T{StringIdBase + 199, "<colonist(AT_departures)>"})
-          self.idATboardingSection.idATboardingTextResult:SetText(T{StringIdBase + 199, "<AT_boarded_colonists>/<colonist(AT_leaving_colonists)>"})
+          self.idATtouristSection.idATarrivingTextResult:SetText(T{StringIdBase + 199, "<AT_arriving_tourists><timageTourist>", timageTourist = imageTourist})
+          self.idATtouristsOnEarthSection.idATtouristsOnEarthTextResult:SetText(T{StringIdBase + 199, "<touristsOnEarth><timageTourist>", touristsOnEarth = ATcountTouristsOnEarth(), timageTourist = imageTourist})
+          self.idATtouristsOnMarsSection.idATtouristsOnMarsTextResult:SetText(T{StringIdBase + 199, "<touristsOnMars><timageTourist>", touristsOnMars = ATcountTouristsOnMars(), timageTourist = imageTourist})
+          self.idATdeparturesSection.idATdeparturesTextResult:SetText(T{StringIdBase + 199, "<AT_departures><timageTourist>", timageTourist = imageTourist})
+          self.idATboardingSection.idATboardingTextResult:SetText(T{StringIdBase + 199, "<AT_boarded_colonists>/<AT_leaving_colonists><timageTourist>", timageTourist = imageTourist})
           self.idATdepartureTimeSection.idATdepartureTimeTextResult:SetText(T{StringIdBase + 199, "<AT_departuretimeText>"})
           -- determine if voyage is ready
           if rocket.AT_next_voyage_time and (rocket.AT_next_voyage_time < GameTime()) then rocket.AT_next_voyage_timeText = "Ready for pickup" end
