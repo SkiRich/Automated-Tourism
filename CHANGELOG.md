@@ -1,4 +1,5 @@
 # Automated Tourism
+<<<<<<< HEAD
 ## v1.9.0 03/26/2021 9:22:14 PM
 #### Changed
 - Moved templates from ipBuilding[1] to customSupplyRocket[1] so I could rearrange button
@@ -68,6 +69,8 @@
 - Add in new satisfaction overview
 
 --------------------------------------------------------
+=======
+>>>>>>> develop
 ## v1.8.4 03/17/2021 2:34:46 PM
 
 #### Removed
