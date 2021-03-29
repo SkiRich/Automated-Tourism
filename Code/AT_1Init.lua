@@ -6,7 +6,7 @@
 -- Created May 1st, 2019
 -- Hotfix Jan 25th, 2020
 -- Tito patch fixes March 15th 2021
--- Update March 27th, 2021
+-- Update March 28th, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -116,18 +116,6 @@ function ATtoggleTouristBoundary(rocket, state)
 		end -- if rocket.AT_touristBoundary
 end -- ATtoggleTouristBoundary(rocket, state)
 
---[[
--- not used at this time. using ReturnStockpiledResources()
--- force the unloading of resources on departure so we dont wait for unload if storage is full
-function ATunloadResources(rocket)
-	local storedResources = {}
-	local resources = rocket.resource or empty_table
-	for i = 1, #resources do
-		storedResources[(resources[i])] = rocket["GetStored_"..(resources[i])](rocket)
-	end -- for i
-	--ex(storedResources)
-end -- ATunloadResources()
-]]--
 
 
 -- function that fixes various save game issues.
@@ -208,6 +196,62 @@ function ATcheckDist(bld1, bld2, distance)
 end -- ATcheckDist(bld1, bld2)
 
 
+-- start all the departure threads if possible
+-- made global - used in all files
+function ATStartDepartureThreads()
+	-- start the departure threads only if there are no more AT rockets
+	-- only for landed supply rockets
+	if (g_AT_NumOfTouristRockets < 1) or (not g_AT_Options.ATpreventDepart) then
+		local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+	  for i = 1, #rockets do
+		  if rockets[i]:IsRocketOnMars() and rockets[i].can_fly_colonists and (not rockets[i].AT_enabled) and
+		  (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod"))
+		  then rockets[i]:StartDepartureThread() end
+	  end -- for i
+	end -- if g_AT_NumOfTouristRockets
+end -- function ATStartDepartureThreads()
+
+
+-- stop all the departure threads
+-- made global - used in all files
+function ATStopDepartureThreads(rocket)
+	-- kill the current rocket thread immediatly
+	if rocket then rocket:StopDepartureThread() end -- new for tourism patch there is a departure thread running all the time
+
+	-- check all landed supply rockets for thread and kill
+	-- dont kill if g_AT_Options.ATpreventDepart is false
+	-- only for landed supply rockets
+	if g_AT_Options.ATpreventDepart then
+	  local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+	  for i = 1, #rockets do
+	  	if rockets[i]:IsRocketOnMars() then
+	  	  rockets[i]:StopDepartureThread()
+  			if not IsValidThread(rockets[i].departure_thread) then rockets[i].departure_thread = false end -- easy to spot in examine
+	  	end -- for i
+	  end -- for i
+	end -- if g_AT_Options.ATpreventDepart
+
+	-- check all landed trade rockets for thread and kill - what where they thinking letting these have departure threads
+	-- only for landed trade rockets
+	local rockets = UICity and UICity.labels.TradeRocket or empty_table
+	for i = 1, #rockets do
+		if rockets[i]:IsRocketOnMars() then
+		  rockets[i]:StopDepartureThread()
+  		if not IsValidThread(rockets[i].departure_thread) then rockets[i].departure_thread = false end -- easy to spot in examine
+		end -- for i
+	end -- for i
+
+	-- check all landed foreign trade rockets for thread and kill - what where they thinking letting these have departure threads
+	-- only for landed trade rockets
+	local rockets = UICity and UICity.labels.ForeignTradeRocket or empty_table
+	for i = 1, #rockets do
+		if rockets[i]:IsRocketOnMars() then
+		  rockets[i]:StopDepartureThread()
+  		if not IsValidThread(rockets[i].departure_thread) then rockets[i].departure_thread = false end -- easy to spot in examine
+		end -- for i
+	end -- for i
+
+end -- function ATStopDepartureThreads(rocket)
 
 
 --------------------------------------------------------- OnMsgs --------------------------------------------------------
@@ -215,6 +259,10 @@ end -- ATcheckDist(bld1, bld2)
 function OnMsg.LoadGame()
 	ATfixupSaves()
 	g_AT_NumOfTouristRockets = ATcountATrockets()
+	-- remove any threads from landed rockets if AT is running
+	if g_AT_NumOfTouristRockets > 0 then
+	  ATStopDepartureThreads() -- stop all departure threads
+	end -- if g_AT_NumOfTouristRockets
 end -- OnMsg.LoadGame()
 
 
@@ -549,10 +597,10 @@ function OnMsg.ClassesGenerate()
   function RocketBase:OnDemolish()
   	local rocket = self
   	if not IsKindOfClasses(rocket, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod") then
-  	  -- ATsetButtonStatus(rocket, true) -- reset original buttons back on -- no need to do this since we are in the process of demolishing the rocket
   	  ATsetupVariables(rocket, false) -- clear all AT vars
   	end --if not IsKindOfClasses
-  	return Old_RocketBase_OnDemolish(self) -- call original function
+  	rocket:StopDepartureThread() -- prevent memory leak.
+  	return Old_RocketBase_OnDemolish(rocket) -- call original function
   end -- RocketBase:OnDemolish()
 
 
@@ -685,22 +733,26 @@ function OnMsg.ClassesGenerate()
   -- plus they fucked it up with a generate departure call twice
   local Old_RocketBase_StartDepartureThread = RocketBase.StartDepartureThread
   function RocketBase:StartDepartureThread()
+  	-- add code to exclude foreign trade rockets and trade rockets
+  	if IsKindOfClasses(self, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")
+  	then return end -- short circuit for invalid rocket types
+
   	if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
   		if lf_print then print("- StartDepartureThread executing for non AT rocket -") end
   		return Old_RocketBase_StartDepartureThread(self)
   	end -- if not self.AT_enabled
+
   	if lf_print then print("- StartDepartureThread executing once for AT rocket -") end
     if not IsValidThread(self.departure_thread) then self.departure_thread = false end -- cosmetic
     if self.AT_enabled then self:GenerateDepartures(true, true) end -- earthsick and tourists but only for AT rockets
   end --function RocketBase:StartDepartureThread()
 
 
-
   -- re-write generate departures to exclude non AT rockets
   -- had to re-write whole code since the delay in finding and calling leavingmars is too variable.
   -- use old code when not AT_enabled
-  -- taken from rocket.lua / Tito its in file SupplyRocket.lua
-  -- Update for Tito
+  -- taken from rocket.lua / Tourism patch changed its code location, now in file SupplyRocket.lua
+  -- Update for Tourism patch
   local Old_SupplyRocket_GenerateDepartures = SupplyRocket.GenerateDepartures
   function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists)
   	-- if not a tourism rocket or we dont have tourism rockets or we dont prevent departures - run original code

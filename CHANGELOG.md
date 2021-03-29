@@ -1,5 +1,37 @@
 # Automated Tourism
-<<<<<<< HEAD
+## v1.9.1 03/28/2021 3:19:03 PM
+#### Changed
+- function ATStartDepartureThreads()
+ - made global and moved to Init file
+ - added Trade and ForeignTrade rocket checks
+- function ATStopDepartureThreads(rocket)
+ - made global and moved to Init file
+- Mod Config Reborn entry for ATpreventDepart
+ - added start/stop departure threads.
+ - added Trade and ForeignTrade rocket checks
+- function RocketBase:OnDemolish()
+ - added kill of departure thread to prevent memory leaks
+- function RocketBase:StartDepartureThread()
+ - only start on supply rockets.
+
+#### Added
+- class check to function ATStopDepartureThreads(rocket)
+
+#### Removed
+- function ATunloadResources(rocket) - function was not used and remmed out for a while
+
+#### Fixed Issues
+- loading a save with an AT rocket running and other rockets still have departure threads
+- cycling MCR option for enabling tourists to use any rocket would need to wait for a new rocket since threasds where not running.
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+- something with colonists boarded on rockets you send on expeditions.
+
+--------------------------------------------------------
 ## v1.9.0 03/26/2021 9:22:14 PM
 #### Changed
 - Moved templates from ipBuilding[1] to customSupplyRocket[1] so I could rearrange button
@@ -66,11 +98,10 @@
 - fix payment system
 
 #### Todo
-- Add in new satisfaction overview
+
 
 --------------------------------------------------------
-=======
->>>>>>> develop
+
 ## v1.8.4 03/17/2021 2:34:46 PM
 
 #### Removed
