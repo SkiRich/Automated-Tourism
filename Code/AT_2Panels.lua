@@ -4,7 +4,7 @@
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated March 27th, 2021
+-- Updated March 28th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -294,37 +294,6 @@ local function ATtouristInRangeText(rocket)
 end -- ATtouristInRangeText()
 
 
--- start all the departure threads if posssible
-local function ATStartDepartureThreads()
-	-- start the departure threads only if there are no more AT rockets
-	-- only for landed supply rockets
-	if g_AT_NumOfTouristRockets < 1 then
-		local rockets = UICity and UICity.labels.SupplyRocket or empty_table
-	  for i = 1, #rockets do
-		  if rockets[i]:IsRocketOnMars() and rockets[i].can_fly_colonists and
-		  (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod"))
-		  then rockets[i]:StartDepartureThread() end
-	  end -- for i
-	end -- if g_AT_NumOfTouristRockets
-end -- function ATStartDepartureThreads()
-
-
--- stop all the departure threads
-local function ATStopDepartureThreads(rocket)
-	-- kill the current rocket thread immediatly
-	if rocket then rocket:StopDepartureThread() end -- new for tourism patch there is a departure thread running all the time
-
-	-- check all landed rockets for thread and kill
-	local rockets = UICity and UICity.labels.SupplyRocket or empty_table
-	for i = 1, #rockets do
-		if rockets[i]:IsRocketOnMars() then
-			rockets[i]:StopDepartureThread()
-			if not IsValidThread(rockets[i].departure_thread) then rockets[i].departure_thread = false end -- easy to spot in examine
-		end -- for i
-	end -- for i
-end -- function ATStopDepartureThreads(rocket)
-
-
 ----------------------- OnMsg -------------------------------------------------------------------------------
 
 
@@ -334,7 +303,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.19"
+  local ATControlVer = "v1.20"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end

@@ -4,13 +4,13 @@
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated Jan 23rd, 2020
+-- Updated March 28th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 68
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 70
 local steam_id = "1736068322"
 local mod_name = "Automated Tourism"
 local ModConfig_id = "1542863522"
@@ -169,7 +169,7 @@ function OnMsg.ModConfigReady()
     -- g_AT_Options.ATfoodPerTourist
     ModConfig:RegisterOption("Automated_Tourism", "ATfoodPerTourist", {
         name = T{StringIdBase + 68, "Amount of food each tourist brings to Mars:"},
-        desc = T{StringIdBase + 69, "Amount of food each tourist brings to Mars."},
+        desc = T{StringIdBase + 69, "The amount of food each tourist brings to Mars."},
         type = "number",
         default = 1,
         min = 0,
@@ -239,9 +239,16 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
       g_AT_Options.ATstripSpecialty = value -- strip specialties
     end -- g_AT_Options.ATstripSpecialty
 
-    --g_AT_Options.ATpreventDepart
+    --g_AT_Options.ATpreventDepart - default is true
   	if option_id == "ATpreventDepart" then
-      g_AT_Options.ATpreventDepart = value -- strip specialties
+  		g_AT_Options.ATpreventDepart = value -- prevent regular rockets from being used by tourists or earthsick
+  		-- code to start and stop all the generateddeparture threads
+  		-- default is true - if flipping value to false we need to restart all the threads on non AT rockets
+      if not g_AT_Options.ATpreventDepart then
+      	ATStartDepartureThreads() -- start all departure threads, except on AT_enabled rockets
+      else
+      	ATStopDepartureThreads() -- if flipping value back to true we need to stop any generateddeparture threads
+      end -- if not g_AT_Options.ATpreventDepar
     end -- g_AT_Options.ATpreventDepart
 
     -- g_AT_Options.ATfoodPerTourist
