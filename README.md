@@ -27,9 +27,14 @@ You built a nice planet, trees and all, send some ugly tourists.
 - Departing tourists only depart on tourism rocket - See note below
 - Highlighting a tourist rocket shows where all the tourists are in the colony
 - Hovering over the infopanel section will show nearby tourist statistics
-- Uses new tourism update code
+- Uses new tourism update code and holiday ratings
 - Includes a fix for softlock error when pressing Holiday Ratings Tourist button.
+- Prevents new tourists and earthsick from boarding Trade and Expedition rockets
+- Coming Soon - Disembark earthsick and tourists when sending rocket on an expedition.
 
 
 #### Please check out some of my other work:
 - [SkiRich's Mod Collection](https://steamcommunity.com/workshop/filedetails/?id=1418440299)
+
+#### New Features and Bug Fix Progress on GitHub
+- [New Feature Development and Bug Fixes](https://github.com/SkiRich/Automated-Tourism/projects)
