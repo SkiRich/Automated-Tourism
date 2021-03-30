@@ -6,6 +6,7 @@
 - function Colonist:LeavingMars(rocket)
  - added a check to the lower variables run in the pushdestructor code - just in case
 - xtemplate to use new toggle function
+- g_ATLoaded to g_At_modEnabled, moved it to Init file as well
 
 #### Added
 - local ATcolonistGenTraits table

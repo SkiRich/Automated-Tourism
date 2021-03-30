@@ -19,6 +19,10 @@ local lf_print = false -- Setup debug printing in local file
                        -- use Msg("ToggleLFPrint", "AT") to toggle
 
 -- global variable to contain AT options
+g_AT_modEnabled = true  -- used in xtemplate condition.  If missing the xtemplate will not show - must be global non-persistent
+                        -- also used to revert re-writen code to original function
+                        -- settable Mod Config Reborn
+
 g_AT_Options = {
 	ATdismissMsg        = true,
 	ATnoticeDismissTime = 20 * 1000, -- 20 seconds the dismiss time for notifications

@@ -10,7 +10,6 @@
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
-g_ATLoaded = true
 
 local ModDir = CurrentModPath
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 117
@@ -357,7 +356,7 @@ function OnMsg.ClassesBuilt()
     	"UniqueID", ATButtonID1,
     	"Id", "idATbutton",
       "__context_of_kind", "SupplyRocket",
-      "__condition", function (parent, context) return g_ATLoaded and context.can_fly_colonists and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+      "__condition", function (parent, context) return g_AT_modEnabled and context.can_fly_colonists and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"}, -- Title Used for sections only
@@ -434,7 +433,7 @@ function OnMsg.ClassesBuilt()
       	"Version", ATControlVer,
       	"Id", "idATSection",
         "__context_of_kind", "SupplyRocket",
-        "__condition", function (parent, context) return g_ATLoaded and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+        "__condition", function (parent, context) return g_AT_modEnabled and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
         "__template", "InfopanelSection",
         "Icon", iconATSection,
         "Title", T{StringIdBase + 105, "Tourist Rocket Status"},
