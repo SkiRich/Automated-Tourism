@@ -7,6 +7,7 @@
  - added a check to the lower variables run in the pushdestructor code - just in case
 - xtemplate to use new toggle function
 - g_ATLoaded to g_At_modEnabled, moved it to Init file as well
+- function DroneControl:OnSelected() - better logic if mod enabled
 
 #### Added
 - local ATcolonistGenTraits table
@@ -14,6 +15,7 @@
 - function RocketExpedition:Takeoff() - rewrite
 - function SupplyRocket:ATtoggleAutoExport()  - new function used in panels
  - uses a delay to prevent takeoff if colonists are walking to a rocket, has a timer
+- g_AT_modEnabled to all re-written class functions
 
 #### Removed
 - unused variables

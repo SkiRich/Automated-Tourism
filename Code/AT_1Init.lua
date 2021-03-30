@@ -18,11 +18,11 @@ local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
                        -- use Msg("ToggleLFPrint", "AT") to toggle
 
--- global variable to contain AT options
+-- global variables
 g_AT_modEnabled = true  -- used in xtemplate condition.  If missing the xtemplate will not show - must be global non-persistent
                         -- also used to revert re-writen code to original function
                         -- settable Mod Config Reborn
-
+-- global variable to contain AT options
 g_AT_Options = {
 	ATdismissMsg        = true,
 	ATnoticeDismissTime = 20 * 1000, -- 20 seconds the dismiss time for notifications
@@ -370,39 +370,41 @@ function OnMsg.LoadGame()
 	ATfixupSaves()
 	g_AT_NumOfTouristRockets = ATcountATrockets()
 	-- remove any threads from landed rockets if AT is running
-	if g_AT_NumOfTouristRockets > 0 then
+	if g_AT_modEnabled and g_AT_NumOfTouristRockets > 0 then
 	  ATStopDepartureThreads() -- stop all departure threads
 	end -- if g_AT_NumOfTouristRockets
 end -- OnMsg.LoadGame()
 
 
 function OnMsg.RocketReachedEarth(rocket)
-	if lf_print and rocket.AT_enabled then print("Tourist Rocket Reached Earth: ", rocket.name) end
+	-- short circuit if mod disabled
+	if g_AT_modEnabled then
+    if lf_print and rocket.AT_enabled then print("Tourist Rocket Reached Earth: ", rocket.name) end
 
-  -- run this regardless of AT status - doesnt hurt since originally it runs when launching a rocket from mars
-  rocket:ClearDepartures(true) -- true set here to postpone clearing the vars so we can still use the UIOpenTouristOverview
+    -- run this regardless of AT status - doesnt hurt since originally it runs when launching a rocket from mars
+    rocket:ClearDepartures(true) -- true set here to postpone clearing the vars so we can still use the UIOpenTouristOverview
 
-	if rocket.AT_enabled then
-     -- clear departure variables
-    rocket.AT_departures = 0
-		rocket.AT_leaving_colonists = 0      -- var holds the colonists wanting to leave
-		rocket.AT_boarded_colonists = 0      -- var holds the colonists that boarded
-		rocket.boarded = {}
-	elseif rocket.AT_departures then
-		-- remove variables if there were departures on a non AT rocket, once it reaches earth
-		rocket.AT_departures = nil
-		rocket.AT_leaving_colonists = nil
-		rocket.AT_boarded_colonists = nil
-		rocket.boarded = nil
-	end -- if rocket.AT_enabled
-
+	  if rocket.AT_enabled then
+       -- clear departure variables
+      rocket.AT_departures = 0
+	  	rocket.AT_leaving_colonists = 0      -- var holds the colonists wanting to leave
+	  	rocket.AT_boarded_colonists = 0      -- var holds the colonists that boarded
+	  	rocket.boarded = {}
+	  elseif rocket.AT_departures then
+	  	-- remove variables if there were departures on a non AT rocket, once it reaches earth
+	  	rocket.AT_departures = nil
+	  	rocket.AT_leaving_colonists = nil
+	  	rocket.AT_boarded_colonists = nil
+	  	rocket.boarded = nil
+	  end -- if rocket.AT_enabled
+	end -- if g_AT_modEnabled
 end -- OnMsg.RocketReachedEarth(rocket)
 
 
 function OnMsg.RocketLaunched(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Mars: ", rocket.name) end
 
-	if rocket.AT_enabled then
+	if g_AT_modEnabled and rocket.AT_enabled then
 		-- fix running tourism rockets for tourism patch fuckups
 		-- delete departure thread if its running, should not be on return trip from earth
 		rocket:StopDepartureThread() -- new for Tourism patch there is a departure thread running all the time, just in case put this here
@@ -438,7 +440,7 @@ end -- OnMsg.RocketLaunched(rocket)
 function OnMsg.RocketLanded(rocket)
 
   -- tourist rockets only
-  if rocket.AT_enabled then
+  if g_AT_modEnabled and rocket.AT_enabled then
   	if lf_print then print("Tourist Rocket Landed On Mars: ", rocket.name) end
   	rocket.AT_status = "landed"
   	rocket.AT_GenDepartRan = false
@@ -560,7 +562,7 @@ end -- OnMsg.RocketLanded(rocket)
 function OnMsg.RocketLaunchFromEarth(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Earth: ", rocket.name) end
 
-	if rocket.AT_enabled then
+	if g_AT_modEnabled and rocket.AT_enabled then
 		-- make sure last voyage was at least X sols ago
 		if (rocket.AT_last_voyage_time == 0 ) or (rocket.AT_next_voyage_time <= GameTime()) then
 
@@ -695,7 +697,7 @@ function OnMsg.ClassesGenerate()
 	-- to eject tourists and earthsick
 	local Old_RocketExpedition_Takeoff = RocketExpedition.Takeoff
 	function RocketExpedition:Takeoff()
-		if self.boarded and #self.boarded > 0 then
+		if g_AT_modEnabled and self.boarded and #self.boarded > 0 then
 			ATejectColonists(self)
 			while self.boarded do
 				Sleep(100)
@@ -710,16 +712,15 @@ function OnMsg.ClassesGenerate()
 	-- highlights all tourists when selecting a tourism rocket
 	local Old_DroneControl_OnSelected = DroneControl.OnSelected
 	function DroneControl:OnSelected()
-    -- short circuit if not a Tourist Rocket
-    if not self.AT_enabled then Old_DroneControl_OnSelected(self) end
-
-    local colonists = UICity.labels.Colonist or empty_table
-    local tourists = {}
-    for i = 1, #colonists do
-      if colonists[i].traits.Tourist then tourists[#tourists+1] = colonists[i] end
-    end -- for i
-
-    if #tourists > 0 then SelectionArrowAdd(tourists) end
+    -- short circuit if not a Tourist Rocket or if mod is disabled
+    if g_AT_modEnabled and self.AT_enabled then
+      local colonists = UICity.labels.Colonist or empty_table
+      local tourists = {}
+      for i = 1, #colonists do
+        if colonists[i].traits.Tourist then tourists[#tourists+1] = colonists[i] end
+      end -- for i
+      if #tourists > 0 then SelectionArrowAdd(tourists) end
+    end -- if g_AT_modEnabled
 
 		Old_DroneControl_OnSelected(self)
 	end -- DroneControl:OnSelected()
@@ -749,25 +750,33 @@ function OnMsg.ClassesGenerate()
   local Old_RocketBase_OnDemolish = RocketBase.OnDemolish
   function RocketBase:OnDemolish()
   	local rocket = self
-  	if not IsKindOfClasses(rocket, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod") then
-  	  ATsetupVariables(rocket, false) -- clear all AT vars
-  	end --if not IsKindOfClasses
-  	rocket:StopDepartureThread() -- prevent memory leak.
+  	-- short circuit of mod disabled
+  	if g_AT_modEnabled then
+  	  if not IsKindOfClasses(rocket, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod") then
+  	    ATsetupVariables(rocket, false) -- clear all AT vars
+  	  end --if not IsKindOfClasses
+  	  rocket:StopDepartureThread() -- prevent memory leak.
+  	end -- if g_AT_modEnabled
   	return Old_RocketBase_OnDemolish(rocket) -- call original function
   end -- RocketBase:OnDemolish()
 
 
   -- rewrite old function to exclude tourist rockets from expeditions
+  -- causes expedition planatary view to consider tourism rocket off limits for expeditions
   -- updated for Tourism Patch
   local Old_RocketBase_IsRocketLanded = RocketBase.IsRocketLanded
   function RocketBase:IsRocketLanded()
-  	if self.AT_enabled then return false
-  		                 else return Old_RocketBase_IsRocketLanded(self) end
+  	if g_AT_modEnabled and self.AT_enabled then
+  		return false
+  	else
+  		return Old_RocketBase_IsRocketLanded(self)
+  	end -- if g_AT_modEnabled
   end -- RocketBase:IsRocketLanded()
 
 
   -- duplicate of old IsRocketLanded
   -- updated for Tourism patch
+  -- only used by AT so no need to disable
   function RocketBase:IsRocketOnMars()
 	  return self.command == "Refuel" or self.command == "WaitLaunchOrder" or self.command == "Unload"
   end -- RocketBase:IsRocketOnMars()
@@ -777,7 +786,7 @@ function OnMsg.ClassesGenerate()
   -- from PlanetaryView.lua
   local Old_GetRocketExpeditionStatus = GetRocketExpeditionStatus
   function GetRocketExpeditionStatus(rocket)
-    if rocket.AT_enabled then
+    if g_AT_modEnabled and rocket.AT_enabled then
       return T(StringIdBase + 7, "Tourist rocket")
     end
     return Old_GetRocketExpeditionStatus(rocket)
@@ -791,7 +800,7 @@ function OnMsg.ClassesGenerate()
   local Old_Colonist_LeavingMars = Colonist.LeavingMars
   function Colonist:LeavingMars(rocket)
   	-- short circuit if not a tourist rocket
-  	if rocket.AT_enabled then
+  	if g_AT_modEnabled and rocket.AT_enabled then
 	    self.leaving = true
 	    self:SetDome(false)
 	    self:ClearTransportRequest()
@@ -873,6 +882,8 @@ function OnMsg.ClassesGenerate()
   -- arrive_on_earth is for AT to execute only when reaching earth, not in original code
   local Old_RocketBase_ClearDepartures = RocketBase.ClearDepartures
   function RocketBase:ClearDepartures(arrive_on_earth)
+  	if not g_AT_modEnabled then return Old_RocketBase_ClearDepartures(self) end -- short circuit
+
   	if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
   		return Old_RocketBase_ClearDepartures(self)
   	end -- if not self.AT_enabled
@@ -890,6 +901,8 @@ function OnMsg.ClassesGenerate()
   -- plus they fucked it up with a generate departure call twice
   local Old_RocketBase_StartDepartureThread = RocketBase.StartDepartureThread
   function RocketBase:StartDepartureThread()
+  	if not g_AT_modEnabled then return Old_RocketBase_StartDepartureThread(self) end -- short circuit
+
   	-- add code to exclude foreign trade rockets and trade rockets
   	if IsKindOfClasses(self, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")
   	then return end -- short circuit for invalid rocket types
@@ -912,6 +925,8 @@ function OnMsg.ClassesGenerate()
   -- Update for Tourism patch
   local Old_SupplyRocket_GenerateDepartures = SupplyRocket.GenerateDepartures
   function SupplyRocket:GenerateDepartures(count_earthsick, count_tourists)
+  	if not g_AT_modEnabled then return Old_SupplyRocket_GenerateDepartures(self) end -- short circuit
+
   	-- if not a tourism rocket or we dont have tourism rockets or we dont prevent departures - run original code
   	if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
   		return Old_SupplyRocket_GenerateDepartures(self, count_earthsick, count_tourists)
