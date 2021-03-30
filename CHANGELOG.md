@@ -3,23 +3,22 @@
 #### Changed
 - OnMsg.RocketReachedEarth(rocket) now cleares all the variables for departures
 - all instances of AT_departures uses #boarded instead to stay in sync with original source
+- function Colonist:LeavingMars(rocket)
+ - added a check to the lower variables run in the pushdestructor code - just in case
+- xtemplate to use new toggle function
 
 #### Added
 - local ATcolonistGenTraits table
 - function ATejectColonists(rocket)
 - function RocketExpedition:Takeoff() - rewrite
+- function SupplyRocket:ATtoggleAutoExport()  - new function used in panels
+ - uses a delay to prevent takeoff if colonists are walking to a rocket, has a timer
 
 #### Removed
+- unused variables
 
 #### Fixed Issues
 - ejecting colonists from expedition and trade rockets
-
-#### Open Issues
-- first nominated AT rocket will takeoff and abandon en route tourists from generatedepartures.
-
-#### Deprecated
-
-#### Todo
 - fix rocket takeoff when colonists are en route to board on first nominated tourism rocket.
 
 --------------------------------------------------------

@@ -6,7 +6,7 @@
 -- Created May 1st, 2019
 -- Hotfix Jan 25th, 2020
 -- Tito patch fixes March 15th 2021
--- Update March 28th, 2021
+-- Update March 30th, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -189,7 +189,6 @@ function ATcheckDist(bld1, bld2, distance)
   	if lf_printdistance then print("--- Distance calc not needed, same building") end
     return true, 0
   end
-  local has_path
   local len_sl = p1:Dist2D(p2)
   if len_sl > distance then
   	if lf_printdistance then print("--- Distance too far, sending false") end
@@ -563,9 +562,8 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 		  if lf_print and rocket.AT_enabled then print("Last tourist rocket older than 5 days, picking up new tourists: ", rocket.name) end
 
   	  -- gather new tourists
-  	  local UICity   = UICity
   	  local capacity = Min(g_Consts.MaxColonistsPerRocket, g_AT_Options.ATMaxTourists) -- set capacity to the smaller of current allowed passengers or 20
-      local applicantPool = g_ApplicantPool or ""
+      local applicantPool = g_ApplicantPool or empty_table
       local findTrait = "Tourist"
       local count = 0
       local tourists = {}
@@ -649,6 +647,7 @@ end -- OnMsg.RocketLaunchFromEarth(rocket)
 ----------------------------------------------------- ClassesBuilt () ------------------------------------------------------------
 function OnMsg.ClassesBuilt()
 
+
 	-- god damn it they forgot another function - fuckers
 	-- not a local
 	function SupplyRocket:OnModifiableValueChanged(prop, old_val, new_val)
@@ -661,6 +660,31 @@ end -- OnMsg.ClassesBuilt()
 
 ------------------------------------------------------ ClassesGenerate() ----------------------------------------
 function OnMsg.ClassesGenerate()
+
+
+	-- new function - nneds to be here, before xtemplates generate otherwise it errors out
+	-- used instead of function SupplyRocket:ToggleAutoExport() in panels
+	-- prevents launch of rocket if there are tourists leaving mars until they board
+	function SupplyRocket:ATtoggleAutoExport()
+		local rocket = self
+		if (not rocket.auto_export) and rocket.departures and (#rocket.departures < 1) then
+			-- we have a departure table but they all boarded so just go
+			rocket:ToggleAutoExport()
+		elseif (not rocket.auto_export) and rocket.departures then
+			if IsValidThread(rocket.AT_boarding_thread) then DeleteThread(rocket.AT_boarding_thread) end -- just in case
+			rocket.AT_boarding_thread = CreateGameTimeThread(function(rocket)
+			  local tick = 0   -- cant wait forever, so we'll wait 60 seconds max
+			  while (#rocket.departures > 0) or (tick < 60) do
+				  Sleep(1000) -- wait one second
+				  tick = tick + 1
+			  end -- while #rocket.departures > 0
+			  rocket:ToggleAutoExport()
+      end, rocket) -- rocket.AT_boarding_thread
+		else
+			rocket:ToggleAutoExport()  -- no rocket departure table then just execute
+		end -- if rocket.departures
+	end -- SupplyRocket:ATtoggleAutoExport()
+
 
 	-- re-write function so we can intercept expedition rocket before takeoff
 	-- to eject tourists and earthsick
@@ -696,9 +720,8 @@ function OnMsg.ClassesGenerate()
 
 
 	-- fix for broken source code
-  local Old_SupplyRocket_UIOpenTouristOverview = SupplyRocket.UIOpenTouristOverview
+  -- local Old_SupplyRocket_UIOpenTouristOverview = SupplyRocket.UIOpenTouristOverview -- not needed since old one is broke dick
   function SupplyRocket:UIOpenTouristOverview(reward_info)
-
   	local tourists = {}
   	local boarded = self.boarded or ""
   	for i = 1, #boarded do
@@ -768,7 +791,6 @@ function OnMsg.ClassesGenerate()
 	    self:ClearTransportRequest()
 	    table.insert(rocket.departures, self)
 
-	    local reached
 	    self:PushDestructor(function(self)
 		    self.leaving = false
 		    rocket.AT_leaving_colonists = rocket.AT_leaving_colonists - 1  -- remove from count
@@ -793,6 +815,7 @@ function OnMsg.ClassesGenerate()
 	    self:PopDestructor()
 	    self:PushDestructor(function(self)
 	    	-- if the rocket is still waiting for something, hop on
+	    	-- this part executes when the colonist has boarded the rocket
 	    	if lf_printcolonist then print(string.format("Colonist leaving on rocket: %s", rocket.name)) end
 	    	table.remove_entry(rocket.departures, self)
 	    	table.insert(rocket.boarding, self)
@@ -820,9 +843,12 @@ function OnMsg.ClassesGenerate()
 	    	DoneObject(self)
 
         -- colonist has boarded rocket
-	    	rocket.AT_boarded_colonists = rocket.AT_boarded_colonists + 1      -- var holds the colonists that boarded
-	    	rocket.AT_departures = #rocket.boarded or 0 -- change the departure count now, instead of waiting for takeoff shows as they walk in
+        -- the if is just in case user toggled the AT rocket while colonist was walking to rocket, will throw errors otherwise
+        if rocket.AT_enabled then
+	    	  rocket.AT_boarded_colonists = rocket.AT_boarded_colonists + 1      -- var holds the colonists that boarded
+	    	  rocket.AT_departures = #rocket.boarded or 0 -- change the departure count now, instead of waiting for takeoff shows as they walk in
         --rocket.AT_departures = rocket.AT_boarded_colonists --legacy pre tourist patch code - leave it
+        end -- if rocket.AT_enabled
 
 	    	--@@@msg ColonistLeavingMars, colonist, rocket - fired when any colonist is leaving Mars
 	    	Msg("ColonistLeavingMars", self, rocket)
@@ -896,7 +922,6 @@ function OnMsg.ClassesGenerate()
   	  	return -- dont gather departures now
   	  end -- if not self.can_fly_colonists
 
-  	  local domes = self.city.labels.Dome or ""
   	  --setup variables
   	  if not self.departures then
   	    self.departures = {}
@@ -908,7 +933,7 @@ function OnMsg.ClassesGenerate()
   	    self.boarded = {}
   	  end -- if not self
 
-  	  local domes = self.city.labels.Dome or ""
+  	  local domes = self.city.labels.Dome or empty_table
   	  local earthsick = {} -- new for tourist patch
       local tourists = {}  -- new for tourist patch
   	  local list = {}

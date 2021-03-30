@@ -4,7 +4,7 @@
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated March 29th, 2021
+-- Updated March 30th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -43,6 +43,7 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_status               = false    -- text var holds current status message
 		rocket.AT_depart_thread        = false    -- var holds countdown thread for departures
 		rocket.AT_status_thread        = false    -- var holds status thread if it exists for boarding complete
+		rocket.AT_boarding_thread      = false    -- var hold boarding thread called from ATtoggleAutoExport()
 		rocket.AT_GenDepartRan         = false    -- var holds status of GenerateDepartures
 		rocket.AT_RecallRadiusMode     = "Mod Config Set" -- mode for recall radius
 	else
@@ -51,7 +52,9 @@ function ATsetupVariables(rocket, init)
 		rocket.AT_depart_thread        = nil
 		if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill the status thread if its running
 		rocket.AT_status_thread        = nil
-	  rocket.AT_enabled              = nil
+		if rocket.AT_boarding_thread and IsValidThread(rocket.AT_boarding_thread) then DeleteThread(rocket.AT_boarding_thread) end -- kill the boarding thread if its running
+		rocket.AT_boarding_thread      = nil
+		rocket.AT_enabled              = nil
 	  if rocket.AT_departures and (rocket.AT_departures < 1) then rocket.AT_departures = nil end -- if departures > 0 then keep departures if cycling on/off
 		rocket.AT_arriving_tourists    = nil
 		rocket.AT_departuretime        = nil
@@ -303,7 +306,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.20"
+  local ATControlVer = "v1.21"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -403,13 +406,13 @@ function OnMsg.ClassesBuilt()
         		rocket.AT_status = "flytoearth"
         	end -- if ATcountTouristsOnEarth()
         	if not rocket.auto_export then
-        		rocket:ToggleAutoExport()
+        		rocket:ATtoggleAutoExport()
         		rocket:ReturnStockpiledResources() -- dump any resources on landing pad so we can launch
         	end -- if not rocket.auto_export
         else
         	rocket.AT_enabled = false
         	self:SetIcon(iconATButtonOff)
-        	if rocket.auto_export then rocket:ToggleAutoExport() end
+        	if rocket.auto_export then rocket:ATtoggleAutoExport() end
         	ATsetupVariables(rocket, false)
         	ATStartDepartureThreads() -- there is a departure thread running all the time for regular rockets
         end -- if not rocket.AT_enabled
