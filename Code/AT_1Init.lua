@@ -5,7 +5,7 @@
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
 -- Hotfix Jan 25th, 2020
--- Tito patch fixes March 15th 2021
+-- Tourism patch fixes March 15th 2021
 -- Update March 30th, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
@@ -38,7 +38,7 @@ GlobalVar("g_AT_currentFixupVer", "0")
 
 g_AT_NumOfTouristRockets = 0       -- keeps track of the number of tourist rockets
 
--- trait table we use for boarded tourists on ejection
+-- trait table we use for boarded tourists on ejection routines
 local ATcolonistGenTraits = {
 	-- these are the standards for GenerateArrivals Colonist:New()
   GenTraits = {"age", "age_trait", "birthplace", "city", "entity_gender", "gender", "name", "race", "specialist", "traits"},
@@ -136,7 +136,7 @@ local function ATfixupSaves()
 
 		-- fix for stuck rockets waiting to unload cargo
 		-- do this once and never again since its fixed going forward in templates
-		local rockets = UICity and UICity.labels.SupplyRocket or empty_table   -- current for Tito
+		local rockets = UICity and UICity.labels.SupplyRocket or empty_table
 		for i = 1, #rockets do
 			if rockets[i].AT_enabled then
 			  if (rockets[i].status == "launch suspended") and (rockets[i]:GetStoredAmount() > 0) then
@@ -205,7 +205,7 @@ function ATcheckDist(bld1, bld2, distance)
 end -- ATcheckDist(bld1, bld2)
 
 
--- start all the departure threads if possible
+-- start all the departure threads if possible oin SupplyRockets only
 -- made global - used in all files
 function ATStartDepartureThreads()
 	-- start the departure threads only if there are no more AT rockets
@@ -221,7 +221,8 @@ function ATStartDepartureThreads()
 end -- function ATStartDepartureThreads()
 
 
--- stop all the departure threads
+-- stop all the departure threads on all landed rockets of all types.
+-- devs made a mistake and thiss should have never happened.
 -- made global - used in all files
 function ATStopDepartureThreads(rocket)
 	-- kill the current rocket thread immediatly
@@ -263,7 +264,7 @@ function ATStopDepartureThreads(rocket)
 end -- function ATStopDepartureThreads(rocket)
 
 
-
+-- function to eject any colonists that have boarded a rocket to return to earth
 local function ATejectColonists(rocket)
 	if rocket.boarded and #rocket.boarded > 0 then
 		local tEjectedColonists = {}
@@ -398,7 +399,7 @@ function OnMsg.RocketLaunched(rocket)
 	if lf_print and rocket.AT_enabled then print("Tourist Rocket Launched from Mars: ", rocket.name) end
 
 	if rocket.AT_enabled then
-		-- fix already running tourism rockets for Tito fuckups
+		-- fix running tourism rockets for tourism patch fuckups
 		-- delete departure thread if its running, should not be on return trip from earth
 		rocket:StopDepartureThread() -- new for Tourism patch there is a departure thread running all the time, just in case put this here
 
@@ -662,9 +663,9 @@ end -- OnMsg.ClassesBuilt()
 function OnMsg.ClassesGenerate()
 
 
-	-- new function - nneds to be here, before xtemplates generate otherwise it errors out
+	-- new function - needs to be here, before xtemplates generate otherwise it errors out in the xtemplate
 	-- used instead of function SupplyRocket:ToggleAutoExport() in panels
-	-- prevents launch of rocket if there are tourists leaving mars until they board
+	-- prevents launch of rocket if there are tourists leaving mars until they board when turning on AT
 	function SupplyRocket:ATtoggleAutoExport()
 		local rocket = self
 		if (not rocket.auto_export) and rocket.departures and (#rocket.departures < 1) then
@@ -702,6 +703,7 @@ function OnMsg.ClassesGenerate()
 	end -- RocketExpedition:Takeoff()
 
 	-- re-write OnSelected()
+	-- highlights all tourists when selecting a tourism rocket
 	local Old_DroneControl_OnSelected = DroneControl.OnSelected
 	function DroneControl:OnSelected()
     -- short circuit if not a Tourist Rocket
@@ -739,7 +741,7 @@ function OnMsg.ClassesGenerate()
 
 
   -- re-write OnDemolish to make sure vars, threads and other items are killed
-  -- updated for Tito
+  -- updated for Tourism patch
   local Old_RocketBase_OnDemolish = RocketBase.OnDemolish
   function RocketBase:OnDemolish()
   	local rocket = self
@@ -752,7 +754,7 @@ function OnMsg.ClassesGenerate()
 
 
   -- rewrite old function to exclude tourist rockets from expeditions
-  -- updated for Tito Patch
+  -- updated for Tourism Patch
   local Old_RocketBase_IsRocketLanded = RocketBase.IsRocketLanded
   function RocketBase:IsRocketLanded()
   	if self.AT_enabled then return false
