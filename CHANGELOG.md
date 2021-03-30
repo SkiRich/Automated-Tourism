@@ -1,4 +1,28 @@
 # Automated Tourism
+## v1.10.0 03/29/2021 2:50:13 AM
+#### Changed
+- OnMsg.RocketReachedEarth(rocket) now cleares all the variables for departures
+- all instances of AT_departures uses #boarded instead to stay in sync with original source
+
+#### Added
+- local ATcolonistGenTraits table
+- function ATejectColonists(rocket)
+- function RocketExpedition:Takeoff() - rewrite
+
+#### Removed
+
+#### Fixed Issues
+- ejecting colonists from expedition and trade rockets
+
+#### Open Issues
+- first nominated AT rocket will takeoff and abandon en route tourists from generatedepartures.
+
+#### Deprecated
+
+#### Todo
+- fix rocket takeoff when colonists are en route to board on first nominated tourism rocket.
+
+--------------------------------------------------------
 ## v1.9.1 03/28/2021 3:19:03 PM
 #### Changed
 - function ATStartDepartureThreads()

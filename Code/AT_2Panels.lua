@@ -4,7 +4,7 @@
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated March 28th, 2021
+-- Updated March 29th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -28,7 +28,7 @@ function ATsetupVariables(rocket, init)
 	if init then
 		g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets + 1 -- increment the global counter
 		rocket.AT_enabled              = true   -- var used to turn system on/off
-		rocket.AT_departures           = rocket.AT_departures or 0      -- number of tourists returning to earth, keep departures if cycling button on/off
+		rocket.AT_departures           = rocket.AT_departures or (rocket.boarded and #rocket.boarded) or 0  -- number of tourists returning to earth, keep departures if cycling button on/off, count boarded
 		rocket.AT_arriving_tourists    = 0        -- number of tourists picked up from earth
 		rocket.AT_departuretime        = 0        -- gametime var for departure time
 		rocket.AT_have_departures      = false    -- bool var to signify we got departures onnboard

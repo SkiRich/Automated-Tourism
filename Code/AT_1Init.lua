@@ -38,6 +38,16 @@ GlobalVar("g_AT_currentFixupVer", "0")
 
 g_AT_NumOfTouristRockets = 0       -- keeps track of the number of tourist rockets
 
+-- trait table we use for boarded tourists on ejection
+local ATcolonistGenTraits = {
+	-- these are the standards for GenerateArrivals Colonist:New()
+  GenTraits = {"age", "age_trait", "birthplace", "city", "entity_gender", "gender", "name", "race", "specialist", "traits"},
+	-- these we'll keep as we eject the tourists to set them as they were
+	ReplaceTraits = {"base_base_morale", "base_birth_comfort_modifier", "base_DailyHealthRecover", "base_DailySanityRecover", "base_morale", "base_performance",
+		               "daily_interest", "death_age", "entity", "infopanel_icon", "inner_entity", "ip_specialization_icon", "log_comfort", "log_health", "log_sanity", "log_satisfaction",
+		               "performance", "pin_icon", "pin_specialization_icon", "sols", "stat_comfort", "stat_health", "stat_morale", "stat_sanity", "stat_satisfaction", "workplace_shift", "status_effects" }
+} -- local ATcolonistGenTraits
+
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 300-349:  Next is 7
 local ModDir = CurrentModPath
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
@@ -254,6 +264,102 @@ function ATStopDepartureThreads(rocket)
 end -- function ATStopDepartureThreads(rocket)
 
 
+
+local function ATejectColonists(rocket)
+	if rocket.boarded and #rocket.boarded > 0 then
+		local tEjectedColonists = {}
+		-- setup new table and remove some of the unecessary fields to generate colonist table
+		-- keep old colonist data where it makes sense
+    for i = 1, #rocket.boarded do
+    	local colonist = rocket.boarded[i]
+    	tEjectedColonists[i] = {}
+    	for traitCategory, traitList in pairs(ATcolonistGenTraits) do
+    		for j = 1, #traitList do
+    			local data = traitList[j]
+          if colonist[data] then tEjectedColonists[i][data] = colonist[data] end
+    		end --for keepTrait
+    	end -- for traitCategory, trait
+    	if tEjectedColonists[i].sols and tEjectedColonists[i].sols > 0 then tEjectedColonists[i].oldSols = tEjectedColonists[i].sols end -- need to replace this after generating new colonist
+    end -- for i
+    rocket.AT_tejectColonists = tEjectedColonists
+
+    -- just in case
+    if rocket.AT_eject_thread and IsValidThread(rocket.AT_eject_thread) then DeleteThread(rocket.AT_eject_thread) end
+
+    -- start a thread here to allow for disembarking time
+    if not IsValidThread(rocket.AT_eject_thread) then
+    	rocket.AT_eject_thread = CreateGameTimeThread(function(rocket)
+        rocket.disembarking = {}
+        rocket.disembarking_confused = false
+        local city = rocket.city
+        local domes, safety_dome = GetDomesInWalkableDistance(city, rocket:GetPos())
+        local num_colonists = 0
+        local num_tourists = 0
+        local TouristSolsOnMarsMax = g_Consts.TouristSolsOnMarsMax
+        local OverstayingTourists = g_OverstayingTourists
+        for i = 1, #tEjectedColonists do
+          local applicant = table.remove(tEjectedColonists)
+          if applicant then
+            if applicant.traits.Tourist then
+              num_tourists = num_tourists + 1
+            else
+              num_colonists = num_colonists + 1
+            end
+            local dome = ChooseDome(applicant.traits, domes, safety_dome)
+            applicant.emigration_dome = dome
+            applicant.city = dome and dome.city or city
+            applicant.arriving = rocket
+            local colonist = Colonist:new(applicant)
+
+            -- put back the time they were on mars
+            if colonist.oldSols then
+            	colonist.sols = colonist.oldSols
+            	colonist.oldSols = nil
+            end -- if colonist.oldSols
+            -- if the time is an overstay put them back in the overstay group
+            -- no need to modify their satifaction, its already accounted for
+           if colonist.traits.Tourist and colonist.sols >= TouristSolsOnMarsMax then
+             OverstayingTourists[#OverstayingTourists + 1] = colonist
+             if HintsEnabled then
+               HintTrigger("HintOverstayingTourists")
+             end
+           end -- if self.traits.Tourist
+
+            rocket.disembarking[#rocket.disembarking + 1] = colonist
+            Sleep(1000 + Random(0, 500))
+          end -- if applicant
+        end -- for i
+
+        -- hold rocket until all have left rocket
+        while #rocket.disembarking > 0 do
+          rocket:CheckDisembarkationTable()
+          Sleep(100)
+        end -- while
+
+        if num_colonists > 0 then
+          AddOnScreenNotification("NewColonists", nil, {count = num_colonists}, {rocket})
+        end -- if num_colonists
+        if num_tourists > 0 then
+          AddOnScreenNotification("NewTourists", nil, {count = num_tourists}, {rocket})
+        end -- if num_tourists
+        if rocket.disembarking_confused then
+          AddOnScreenNotification("ConfusedColonists", nil, {}, {
+            rocket:GetPos()
+          })
+        end -- if self.disembarking_confuse
+
+        Msg("ColonistsLanded")
+
+        rocket.disembarking = nil
+        rocket.boarded = nil
+        rocket.AT_departures = nil
+
+      end, rocket) -- AT_eject_thread
+    end --if not IsValidThread
+	end -- if rocket.boarded
+end -- ATejectColonists(rocket)
+
+
 --------------------------------------------------------- OnMsgs --------------------------------------------------------
 
 function OnMsg.LoadGame()
@@ -277,11 +383,13 @@ function OnMsg.RocketReachedEarth(rocket)
     rocket.AT_departures = 0
 		rocket.AT_leaving_colonists = 0      -- var holds the colonists wanting to leave
 		rocket.AT_boarded_colonists = 0      -- var holds the colonists that boarded
+		rocket.boarded = {}
 	elseif rocket.AT_departures then
 		-- remove variables if there were departures on a non AT rocket, once it reaches earth
 		rocket.AT_departures = nil
 		rocket.AT_leaving_colonists = nil
 		rocket.AT_boarded_colonists = nil
+		rocket.boarded = nil
 	end -- if rocket.AT_enabled
 
 end -- OnMsg.RocketReachedEarth(rocket)
@@ -299,7 +407,8 @@ function OnMsg.RocketLaunched(rocket)
     ATtoggleTouristBoundary(rocket, false)
     rocket.AT_departuretimeText = ""
     -- calc departures based on boarded colonists
-    rocket.AT_departures = rocket.AT_boarded_colonists
+    rocket.AT_departures = (rocket.boarded and #rocket.boarded) or rocket.AT_boarded_colonists
+    --rocket.AT_departures = rocket.AT_boarded_colonists -- legacy code from pre tourist patch
     if rocket.AT_departures < 0 then rocket.AT_departures = 0 end
 
     -- notification of rocket launch
@@ -553,6 +662,21 @@ end -- OnMsg.ClassesBuilt()
 ------------------------------------------------------ ClassesGenerate() ----------------------------------------
 function OnMsg.ClassesGenerate()
 
+	-- re-write function so we can intercept expedition rocket before takeoff
+	-- to eject tourists and earthsick
+	local Old_RocketExpedition_Takeoff = RocketExpedition.Takeoff
+	function RocketExpedition:Takeoff()
+		if self.boarded and #self.boarded > 0 then
+			ATejectColonists(self)
+			while self.boarded do
+				Sleep(100)
+			end -- while
+			return Old_RocketExpedition_Takeoff(self)
+		else
+		  return Old_RocketExpedition_Takeoff(self)
+		end -- if self.boarded
+	end -- RocketExpedition:Takeoff()
+
 	-- re-write OnSelected()
 	local Old_DroneControl_OnSelected = DroneControl.OnSelected
 	function DroneControl:OnSelected()
@@ -683,7 +807,7 @@ function OnMsg.ClassesGenerate()
 	    	table.remove_entry(g_OverstayingTourists, self)
 
 	    	-- make two new tourists for every one that leaves
-	    	-- deprected since HolidayRating:RewardApplicants(rating, tourist) now generates new applicants based on ratings
+	    	-- deprecated since HolidayRating:RewardApplicants(rating, tourist) now generates new applicants based on ratings
 	    	--[[
 	    	if self.traits.Tourist then
 	    		local tourist1 = GenerateApplicant(false, self.city)
@@ -697,7 +821,8 @@ function OnMsg.ClassesGenerate()
 
         -- colonist has boarded rocket
 	    	rocket.AT_boarded_colonists = rocket.AT_boarded_colonists + 1      -- var holds the colonists that boarded
-        rocket.AT_departures = rocket.AT_boarded_colonists -- uptick the departure count now, instead of waiting for takeoff
+	    	rocket.AT_departures = #rocket.boarded or 0 -- change the departure count now, instead of waiting for takeoff shows as they walk in
+        --rocket.AT_departures = rocket.AT_boarded_colonists --legacy pre tourist patch code - leave it
 
 	    	--@@@msg ColonistLeavingMars, colonist, rocket - fired when any colonist is leaving Mars
 	    	Msg("ColonistLeavingMars", self, rocket)
@@ -784,8 +909,8 @@ function OnMsg.ClassesGenerate()
   	  end -- if not self
 
   	  local domes = self.city.labels.Dome or ""
-  	  local earthsick = {} -- new for Tito
-      local tourists = {}  -- new for Tito
+  	  local earthsick = {} -- new for tourist patch
+      local tourists = {}  -- new for tourist patch
   	  local list = {}
   	  local max_walk_dist = g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist
   	  if lf_print then print("- Checking for suitable colonists to leave") end
