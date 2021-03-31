@@ -1,4 +1,35 @@
 # Automated Tourism
+## v1.10.0 03/29/2021 2:50:13 AM
+#### Changed
+- OnMsg.RocketReachedEarth(rocket) now cleares all the variables for departures
+- all instances of AT_departures uses #boarded instead to stay in sync with original source
+- function Colonist:LeavingMars(rocket)
+ - added a check to the lower variables run in the pushdestructor code - just in case
+- xtemplate to use new toggle function
+- g_ATLoaded to g_At_modEnabled, moved it to Init file as well
+- function DroneControl:OnSelected() - better logic if mod enabled
+- function WaitForModConfig() - functions and messages in WaitForModConfig for enable disable mod
+
+#### Added
+- local ATcolonistGenTraits table
+- function ATejectColonists(rocket)
+- function RocketExpedition:Takeoff() - rewrite
+- function SupplyRocket:ATtoggleAutoExport()  - new function used in panels
+ - uses a delay to prevent takeoff if colonists are walking to a rocket, has a timer
+- g_AT_modEnabled to all re-written class functions
+- g_AT_RocketCheckComplete to let processes know this is done
+- function OnMsg.CityStart() to init file for setup of init variables
+- functions and messages in WaitForModConfig for enable disable mod
+- function ATWarnATrocketsEnabled(num_rockets) for Mod config warning
+
+#### Removed
+- unused variables
+
+#### Fixed Issues
+- ejecting colonists from expedition and trade rockets
+- fix rocket takeoff when colonists are en route to board on first nominated tourism rocket.
+
+--------------------------------------------------------
 ## v1.9.1 03/28/2021 3:19:03 PM
 #### Changed
 - function ATStartDepartureThreads()
