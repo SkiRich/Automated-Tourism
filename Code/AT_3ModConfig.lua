@@ -10,11 +10,16 @@
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 70
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 77
 local steam_id = "1736068322"
 local mod_name = "Automated Tourism"
 local ModConfig_id = "1542863522"
 local ModConfigWaitThread = false
+local ModDir = CurrentModPath
+local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
+local imageATrockets   = ModDir.."UI/Messages/AT_Rockets_Takeoff.png"
+local msgModEnabled  = T{StringIdBase + 72, "Automatic Tourism is enabled"}
+local msgModDisabled = T{StringIdBase + 73, "Automatic Tourism is disabled"}
 g_ModConfigLoaded = false
 
 
@@ -61,6 +66,32 @@ local function WaitForModConfig()
         g_AT_Options.ATpreventDepart   = ModConfig:Get("Automated_Tourism", "ATpreventDepart")
         g_AT_Options.ATfoodPerTourist  = ModConfig:Get("Automated_Tourism", "ATfoodPerTourist")
 
+        -- g_AT_modEnabled g_AT_NumOfTouristRockets enable mod checks
+        local tick = 0 -- wait up to 120 seconds for this
+        while (not g_AT_RocketCheckComplete) and (tick < 1200) do
+          Sleep (100) -- wait until check is complete
+          tick = tick + 1
+        end -- while
+
+        local AT_modEnabled = ModConfig:Get("Automated_Tourism", "AT_modEnabled")
+        if (AT_modEnabled ~= g_AT_modEnabled) and (g_AT_NumOfTouristRockets > 0) then
+          -- g_AT_modEnabled is default true, non-persistent on any game load
+          -- cannot set mod disabled if there are tourist rockets running, reset MCR to enabled
+          ModConfig:Set("Automated_Tourism", "AT_modEnabled", true, "reset")
+        elseif (AT_modEnabled ~= g_AT_modEnabled) and (g_AT_NumOfTouristRockets < 1) then
+          g_AT_modEnabled = AT_modEnabled
+        end -- if (AT_modEnabled ~= g_AT_modEnabled)
+
+        -- Send a notification message about status
+        local msg
+        if g_AT_modEnabled then
+          msg = msgModEnabled
+        else
+          msg = msgModDisabled
+        end --if g_AT_modEnabled
+        AddCustomOnScreenNotification("AT_Notice", T{StringIdBase + 50, "Automatic Tourism"}, msg, iconATnoticeIcon, nil, {expiration = g_AT_Options.ATnoticeDismissTime})
+        PlayFX("UINotificationResearchComplete")
+
         ModLog(string.format("%s detected ModConfig running - Setup Complete", mod_name))
       else
         -- PUT MOD DEFAULTS HERE OR SET THEM UP BEFORE RUNNING THIS FUNCTION ---
@@ -76,6 +107,19 @@ local function WaitForModConfig()
   end -- check to make sure thread not running
 end -- WaitForModConFig
 
+local function ATWarnATrocketsEnabled(num_rockets)
+  CreateRealTimeThread(function()
+      local params = {
+            title = T{StringIdBase + 74, "Warning"},
+             text = T{StringIdBase + 75, "You cannot disable Automated Tourism Mod while rockets are set to Automated.<newline>You have <number> automated rockets flying.", number = num_rockets or 0},
+          choice1 = T{StringIdBase + 76, "OK"},
+            image = imageATrockets,
+            start_minimized = false,
+      } -- params
+      local choice = WaitPopupNotification(false, params)
+  end ) -- CreateRealTimeThread
+end -- function end
+
 ---------------------------------------------- OnMsgs -------------------------------------------------------------------
 
 function OnMsg.ModConfigReady()
@@ -87,95 +131,103 @@ function OnMsg.ModConfigReady()
         T{StringIdBase + 51, "Options for Automated Tourism"} -- Optional description
     )
 
-    ModConfig:RegisterOption("Automated_Tourism", "ATdismissMsg", {
-        name = T{StringIdBase + 52, "Auto dismiss notification: "},
-        desc = T{StringIdBase + 53, "Auto dismiss Automated Tourism messages.  Set the time below."},
+    ModConfig:RegisterOption("Automated_Tourism", "AT_modEnabled", {
+        name = T{StringIdBase + 52, "Enable Automated Tourism Mod and Fixes: "},
+        desc = T{StringIdBase + 53, "Enable Automated Tourism completly including fixes or disable and return functions to original game code."},
         type = "boolean",
         default = true,
         order = 1
     })
 
+    ModConfig:RegisterOption("Automated_Tourism", "ATdismissMsg", {
+        name = T{StringIdBase + 54, "Auto dismiss notification: "},
+        desc = T{StringIdBase + 55, "Auto dismiss Automated Tourism messages.  Set the time below."},
+        type = "boolean",
+        default = true,
+        order = 2
+    })
+
     ModConfig:RegisterOption("Automated_Tourism", "ATnoticeDismissTime", {
-        name = T{StringIdBase + 54, "Auto dismiss notification time in seconds:"},
-        desc = T{StringIdBase + 55, "The number of seconds to keep notifications on screen before dismissing."},
+        name = T{StringIdBase + 56, "Auto dismiss notification time in seconds:"},
+        desc = T{StringIdBase + 57, "The number of seconds to keep notifications on screen before dismissing."},
         type = "number",
         default = 20,
         min = 1,
         max = 200,
         step = 1,
-        order = 2
+        order = 3
     })
 
     -- ATMaxTourists
     ModConfig:RegisterOption("Automated_Tourism", "ATMaxTourists", {
-        name = T{StringIdBase + 56, "Maximum tourists per rocket:"},
-        desc = T{StringIdBase + 57, "The maximum number of tourists a rocket can load (if rocket capacity allows)"},
+        name = T{StringIdBase + 58, "Maximum tourists per rocket:"},
+        desc = T{StringIdBase + 59, "The maximum number of tourists a rocket can load (if rocket capacity allows)"},
         type = "number",
         default = 20,
-        min = 1,
-        max = 50,
-        step = 1,
-        order = 3
-    })
-
-    -- ATvoyageWaitTime
-    ModConfig:RegisterOption("Automated_Tourism", "ATvoyageWaitTime", {
-        name = T{StringIdBase + 58, "Wait time between voyages:"},
-        desc = T{StringIdBase + 59, "The minimum sols to wait between voyages."},
-        type = "number",
-        default = 5,
         min = 1,
         max = 50,
         step = 1,
         order = 4
     })
 
-    -- ATrecallRadius
-    ModConfig:RegisterOption("Automated_Tourism", "ATrecallRadius", {
-        name = T{StringIdBase + 60, "Globally show tourist recall radius:"},
-        desc = T{StringIdBase + 61, "Globally show the tourist recall radius circle around the rocket.<newline>Individual rocket settings override this setting."},
-        type = "boolean",
-        default = true,
+    -- ATvoyageWaitTime
+    ModConfig:RegisterOption("Automated_Tourism", "ATvoyageWaitTime", {
+        name = T{StringIdBase + 60, "Wait time between voyages:"},
+        desc = T{StringIdBase + 61, "The minimum sols to wait between voyages."},
+        type = "number",
+        default = 5,
+        min = 1,
+        max = 50,
+        step = 1,
         order = 5
     })
 
-    -- ATearlyDepartures
-    ModConfig:RegisterOption("Automated_Tourism", "ATearlyDepartures", {
-        name = T{StringIdBase + 62, "Allow early departures:"},
-        desc = T{StringIdBase + 63, "Set departure time to the next voyage time, if voyage is already set."},
+    -- ATrecallRadius
+    ModConfig:RegisterOption("Automated_Tourism", "ATrecallRadius", {
+        name = T{StringIdBase + 62, "Globally show tourist recall radius:"},
+        desc = T{StringIdBase + 63, "Globally show the tourist recall radius circle around the rocket.<newline>Individual rocket settings override this setting."},
         type = "boolean",
         default = true,
         order = 6
     })
 
-    -- g_AT_Options.ATstripSpecialty
-    ModConfig:RegisterOption("Automated_Tourism", "ATstripSpecialty", {
-        name = T{StringIdBase + 64, "Strip tourist specialization:"},
-        desc = T{StringIdBase + 65, "Remove any specialities for arriving tourists since they dont work anyway."},
+    -- ATearlyDepartures
+    ModConfig:RegisterOption("Automated_Tourism", "ATearlyDepartures", {
+        name = T{StringIdBase + 64, "Allow early departures:"},
+        desc = T{StringIdBase + 65, "Set departure time to the next voyage time, if voyage is already set."},
         type = "boolean",
         default = true,
         order = 7
     })
 
-    -- g_AT_Options.ATpreventDepart
-    ModConfig:RegisterOption("Automated_Tourism", "ATpreventDepart", {
-        name = T{StringIdBase + 66, "Prevent departures on non tourist rockets:"},
-        desc = T{StringIdBase + 67, "Prevents tourists from leaving Mars on non tourist rockets when at least one Tourist Rocket is running."},
+    -- g_AT_Options.ATstripSpecialty
+    ModConfig:RegisterOption("Automated_Tourism", "ATstripSpecialty", {
+        name = T{StringIdBase + 66, "Strip tourist specialization:"},
+        desc = T{StringIdBase + 67, "Remove any specialities for arriving tourists since they dont work anyway."},
         type = "boolean",
         default = true,
         order = 8
     })
 
+    -- g_AT_Options.ATpreventDepart
+    ModConfig:RegisterOption("Automated_Tourism", "ATpreventDepart", {
+        name = T{StringIdBase + 68, "Prevent departures on non tourist rockets:"},
+        desc = T{StringIdBase + 69, "Prevents tourists from leaving Mars on non tourist rockets when at least one Tourist Rocket is running."},
+        type = "boolean",
+        default = true,
+        order = 9
+    })
+
     -- g_AT_Options.ATfoodPerTourist
     ModConfig:RegisterOption("Automated_Tourism", "ATfoodPerTourist", {
-        name = T{StringIdBase + 68, "Amount of food each tourist brings to Mars:"},
-        desc = T{StringIdBase + 69, "The amount of food each tourist brings to Mars."},
+        name = T{StringIdBase + 70, "Amount of food each tourist brings to Mars:"},
+        desc = T{StringIdBase + 71, "The amount of food each tourist brings to Mars."},
         type = "number",
         default = 1,
         min = 0,
         max = 5,
         step = 1,
-        order = 9
+        order = 10
     })
 
 end -- ModConfigReady
@@ -183,6 +235,30 @@ end -- ModConfigReady
 
 function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
   if g_ModConfigLoaded and (mod_id == "Automated_Tourism") and (token ~= "reset") then
+
+    -- AT_modEnabled
+    if option_id == "AT_modEnabled" then
+      if value then
+        -- enable AT
+        -- if true just set it and notify
+        g_AT_modEnabled = value
+        AddCustomOnScreenNotification("AT_Notice", T{StringIdBase + 50, "Automatic Tourism"}, msgModEnabled, iconATnoticeIcon, nil, {expiration = g_AT_Options.ATnoticeDismissTime})
+        PlayFX("UINotificationResearchComplete")
+      elseif g_AT_NumOfTouristRockets > 0 then
+        -- cant disable AT
+        -- cant set it since we are flying AT rockets
+        -- reset MCR and msg
+        ModConfig:Toggle("Automated_Tourism", "AT_modEnabled", "Reset")
+        ATWarnATrocketsEnabled(g_AT_NumOfTouristRockets)
+      else
+        -- disable AT
+        -- if no AT rockets set and notify
+        g_AT_modEnabled = value
+        AddCustomOnScreenNotification("AT_Notice", T{StringIdBase + 50, "Automatic Tourism"}, msgModDisabled, iconATnoticeIcon, nil, {expiration = g_AT_Options.ATnoticeDismissTime})
+        PlayFX("UINotificationResearchComplete")
+        ATStartDepartureThreads() -- put them back like normal
+      end -- if value
+    end -- AT_modEnabled
 
     -- ATdismissMsg
     if option_id == "ATdismissMsg" then

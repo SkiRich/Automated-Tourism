@@ -8,6 +8,7 @@
 - xtemplate to use new toggle function
 - g_ATLoaded to g_At_modEnabled, moved it to Init file as well
 - function DroneControl:OnSelected() - better logic if mod enabled
+- function WaitForModConfig() - functions and messages in WaitForModConfig for enable disable mod
 
 #### Added
 - local ATcolonistGenTraits table
@@ -16,6 +17,10 @@
 - function SupplyRocket:ATtoggleAutoExport()  - new function used in panels
  - uses a delay to prevent takeoff if colonists are walking to a rocket, has a timer
 - g_AT_modEnabled to all re-written class functions
+- g_AT_RocketCheckComplete to let processes know this is done
+- function OnMsg.CityStart() to init file for setup of init variables
+- functions and messages in WaitForModConfig for enable disable mod
+- function ATWarnATrocketsEnabled(num_rockets) for Mod config warning
 
 #### Removed
 - unused variables

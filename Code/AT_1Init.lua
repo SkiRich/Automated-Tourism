@@ -41,6 +41,7 @@ g_AT_fixupVer = "v1.1"
 GlobalVar("g_AT_currentFixupVer", "0")
 
 g_AT_NumOfTouristRockets = 0       -- keeps track of the number of tourist rockets
+g_AT_RocketCheckComplete = false   -- lets other processes know we checked the savegame for tourist rockets
 
 -- trait table we use for boarded tourists on ejection routines
 local ATcolonistGenTraits = {
@@ -52,7 +53,7 @@ local ATcolonistGenTraits = {
                    "performance", "pin_icon", "pin_specialization_icon", "sols", "stat_comfort", "stat_health", "stat_morale", "stat_sanity", "stat_satisfaction", "workplace_shift", "status_effects" }
 } -- local ATcolonistGenTraits
 
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 300-349:  Next is 7
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 0-50:  Next is 7
 local ModDir = CurrentModPath
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 
@@ -132,7 +133,8 @@ end -- ATtoggleTouristBoundary(rocket, state)
 
 
 
--- function that fixes various save game issues.
+-- function that fixes various save game issues
+-- only runs if game save was from previous version
 local function ATfixupSaves()
   -- if we got things to fix update the ver
   if g_AT_currentFixupVer ~= g_AT_fixupVer then
@@ -366,9 +368,15 @@ end -- ATejectColonists(rocket)
 
 --------------------------------------------------------- OnMsgs --------------------------------------------------------
 
+function OnMsg.CityStart()
+  -- since there are no rockets yet this is true
+  g_AT_RocketCheckComplete = true
+end -- OnMsg.CityStart()
+
 function OnMsg.LoadGame()
   ATfixupSaves()
   g_AT_NumOfTouristRockets = ATcountATrockets()
+  g_AT_RocketCheckComplete = true
   -- remove any threads from landed rockets if AT is running
   if g_AT_modEnabled and g_AT_NumOfTouristRockets > 0 then
     ATStopDepartureThreads() -- stop all departure threads
