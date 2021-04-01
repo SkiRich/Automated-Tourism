@@ -4,13 +4,13 @@
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated March 28th, 2021
+-- Updated March 31th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 77
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 79
 local steam_id = "1736068322"
 local mod_name = "Automated Tourism"
 local ModConfig_id = "1542863522"
@@ -31,6 +31,7 @@ local function WaitForModConfig()
       local Sleep = Sleep
       local TableFind  = table.find
       local ModsLoaded = ModsLoaded
+      local options = g_AT_Options -- table where all the mod options are stored
       local threadlimit = 120  -- loops to wait before fail and exit thread loop
        while threadlimit > 0 do
          --check to make sure another mod didn't already set g_ModConfigLoaded
@@ -51,20 +52,20 @@ local function WaitForModConfig()
       -- See if ModConfig is installed and any defaults changed
       if g_ModConfigLoaded and ModConfig:IsReady() then
 
-        g_AT_Options.ATdismissMsg = ModConfig:Get("Automated_Tourism", "ATdismissMsg")
-        if not g_AT_Options.ATdismissMsg then
-          g_AT_Options.ATnoticeDismissTime = -1
+        options.ATdismissMsg = ModConfig:Get("Automated_Tourism", "ATdismissMsg")
+        if not options.ATdismissMsg then
+          options.ATnoticeDismissTime = -1
         else
-          g_AT_Options.ATnoticeDismissTime = ModConfig:Get("Automated_Tourism", "ATnoticeDismissTime") * 1000
-        end -- if not g_AT_Options.ATdismissMsg
+          options.ATnoticeDismissTime = ModConfig:Get("Automated_Tourism", "ATnoticeDismissTime") * 1000
+        end -- if not options.ATdismissMsg
 
-        g_AT_Options.ATMaxTourists     = ModConfig:Get("Automated_Tourism", "ATMaxTourists")
-        g_AT_Options.ATvoyageWaitTime  = ModConfig:Get("Automated_Tourism", "ATvoyageWaitTime")
-        g_AT_Options.ATrecallRadius    = ModConfig:Get("Automated_Tourism", "ATrecallRadius")
-        g_AT_Options.ATearlyDepartures = ModConfig:Get("Automated_Tourism", "ATearlyDepartures")
-        g_AT_Options.ATstripSpecialty  = ModConfig:Get("Automated_Tourism", "ATstripSpecialty")
-        g_AT_Options.ATpreventDepart   = ModConfig:Get("Automated_Tourism", "ATpreventDepart")
-        g_AT_Options.ATfoodPerTourist  = ModConfig:Get("Automated_Tourism", "ATfoodPerTourist")
+        options.ATMaxTourists     = ModConfig:Get("Automated_Tourism", "ATMaxTourists")
+        options.ATvoyageWaitTime  = ModConfig:Get("Automated_Tourism", "ATvoyageWaitTime")
+        options.ATrecallRadius    = ModConfig:Get("Automated_Tourism", "ATrecallRadius")
+        options.ATearlyDepartures = ModConfig:Get("Automated_Tourism", "ATearlyDepartures")
+        options.ATstripSpecialty  = ModConfig:Get("Automated_Tourism", "ATstripSpecialty")
+        options.ATpreventDepart   = ModConfig:Get("Automated_Tourism", "ATpreventDepart")
+        options.ATfoodPerTourist  = ModConfig:Get("Automated_Tourism", "ATfoodPerTourist")
 
         -- g_AT_modEnabled g_AT_NumOfTouristRockets enable mod checks
         local tick = 0 -- wait up to 120 seconds for this
@@ -73,23 +74,38 @@ local function WaitForModConfig()
           tick = tick + 1
         end -- while
 
+        -- check and set for g_AT_modEnabled - only worry about turning it off
         local AT_modEnabled = ModConfig:Get("Automated_Tourism", "AT_modEnabled")
         if (AT_modEnabled ~= g_AT_modEnabled) and (g_AT_NumOfTouristRockets > 0) then
           -- g_AT_modEnabled is default true, non-persistent on any game load
-          -- cannot set mod disabled if there are tourist rockets running, reset MCR to enabled
+          -- so only worry about turning it off
+          -- cannot set mod disabled if there are tourist rockets running, reset MCR back to enabled
           ModConfig:Set("Automated_Tourism", "AT_modEnabled", true, "reset")
         elseif (AT_modEnabled ~= g_AT_modEnabled) and (g_AT_NumOfTouristRockets < 1) then
+          -- no tourism rockets running, then ok to shutdown
           g_AT_modEnabled = AT_modEnabled
         end -- if (AT_modEnabled ~= g_AT_modEnabled)
 
-        -- Send a notification message about status
+        -- Check and set for options.ATreplaceLogo
+        local ATreplaceLogo = ModConfig:Get("Automated_Tourism", "ATreplaceLogo")
+        if g_AT_modEnabled and (g_AT_NumOfTouristRockets > 0) and (ATreplaceLogo ~= options.ATreplaceLogo) then
+          -- g_ATreplaceLogo is default true, non-persistent on any game load
+          -- run through rockets and remove logo if necessary
+          ATreplaceRocketLogo(nil, nil, true, nil) -- resetAll
+          options.ATreplaceLogo = ATreplaceLogo
+        elseif (ATreplaceLogo ~= options.ATreplaceLogo) and (g_AT_NumOfTouristRockets < 1) then
+          -- no tourism rockets running, just change the option
+          options.ATreplaceLogo = ATreplaceLogo
+        end -- if (AT_modEnabled ~= g_AT_modEnabled)
+
+        -- Send a notification message about mod status
         local msg
         if g_AT_modEnabled then
           msg = msgModEnabled
         else
           msg = msgModDisabled
         end --if g_AT_modEnabled
-        AddCustomOnScreenNotification("AT_Notice", T{StringIdBase + 50, "Automatic Tourism"}, msg, iconATnoticeIcon, nil, {expiration = g_AT_Options.ATnoticeDismissTime})
+        AddCustomOnScreenNotification("AT_Notice", T{StringIdBase + 50, "Automatic Tourism"}, msg, iconATnoticeIcon, nil, {expiration = options.ATnoticeDismissTime})
         PlayFX("UINotificationResearchComplete")
 
         ModLog(string.format("%s detected ModConfig running - Setup Complete", mod_name))
@@ -230,6 +246,15 @@ function OnMsg.ModConfigReady()
         order = 10
     })
 
+    -- g_AT_Options.ATreplaceLogo
+    ModConfig:RegisterOption("Automated_Tourism", "ATreplaceLogo", {
+        name = T{StringIdBase + 77, "Use Mars Touring Company Logo:"},
+        desc = T{StringIdBase + 78, "Use Mars Touring Company Logo on all the rockets that are set as Automatic Tourism Rockets."},
+        type = "boolean",
+        default = true,
+        order = 11
+    })
+
 end -- ModConfigReady
 
 
@@ -331,6 +356,16 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
     if option_id == "ATfoodPerTourist" then
       g_AT_Options.ATfoodPerTourist = value -- food per tourist en route to mars
     end -- g_AT_Options.ATfoodPerTourist
+
+    --g_AT_Options.ATreplaceLogo
+    if option_id == "ATreplaceLogo" then
+      g_AT_Options.ATreplaceLogo = value
+      if value then
+        ATreplaceRocketLogo(nil, nil, nil, true) -- applyAll
+      else
+        ATreplaceRocketLogo(nil, nil, true, nil) -- resetAll
+      end -- if value
+    end -- g_AT_Options.ATreplaceLogo
 
   end -- if g_ModConfigLoaded
 end -- OnMsg.ModConfigChanged

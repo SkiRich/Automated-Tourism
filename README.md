@@ -31,6 +31,7 @@ You built a nice planet, trees and all, send some ugly tourists.
 - Includes a fix for softlock error when pressing Holiday Ratings Tourist button.
 - Prevents new tourists and earthsick from boarding Trade and Expedition rockets
 - Disembark earthsick and tourists when sending rocket on an expedition.
+- New Mars Tourism Rocket Decal placed on all AT rockets when turned on - Optional with MCR
 
 #### Please check out some of my other work:
 - [SkiRich's Mod Collection](https://steamcommunity.com/workshop/filedetails/?id=1418440299)

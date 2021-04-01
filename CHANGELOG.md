@@ -1,4 +1,18 @@
 # Automated Tourism
+## v1.11 03/31/2021 3:25:36 PM
+#### Changed
+- .gitignore to not git new images and entities
+- g_AT_Options - added option for logo replacement
+- changes references to g_AT_Options to local options in WaitForModConfig
+- function OnMsg.LoadGame() in Init file to change all AT rocket logos
+- WaitForModConfig - set new variable
+
+#### Added
+- Tour Company logo files and entities - decal
+- rocket.AT_oldDecal to variables in rocket
+- function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
+
+--------------------------------------------------------
 ## v1.10.0 03/29/2021 2:50:13 AM
 #### Changed
 - OnMsg.RocketReachedEarth(rocket) now cleares all the variables for departures

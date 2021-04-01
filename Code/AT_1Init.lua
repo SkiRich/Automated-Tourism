@@ -6,7 +6,7 @@
 -- Created May 1st, 2019
 -- Hotfix Jan 25th, 2020
 -- Tourism patch fixes March 15th 2021
--- Update March 30th, 2021
+-- Update March 31th, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -34,6 +34,7 @@ g_AT_Options = {
   ATpreventDepart     = true,      -- prevents colonists from using non AT rockets to depart
   ATmax_walk_dist     = 2,         -- x const.ColonistMaxDomeWalkDist for calcs in recall and boundary
   ATfoodPerTourist    = 1,         -- Food each tourist brings to mars on board rocket
+  ATreplaceLogo       = true,      -- replace the tourism rocket logo with Mars Touring Company
 } -- g_AT_Options
 
 -- Save game fixup variables
@@ -366,6 +367,54 @@ local function ATejectColonists(rocket)
 end -- ATejectColonists(rocket)
 
 
+-- function to replace current rocket decal with Mars Touring Company decal
+-- global used in all files
+-- rocket  : current rocket
+-- reset   : boolean, reset the current rocket to the original decal
+-- resetAll: boolean,  loops through all rockets reseting any it find to original decals, should only be called from MCR
+-- applyAll: boolean,  loops through all rockets and applys new logo to AT rockets only, should only be called in LoadGame()
+function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
+  -- change one rocket to Mars Tourism Company
+  -- dont run if we put something in there already
+  if g_AT_Options.ATreplaceLogo and g_AT_modEnabled and rocket and (not reset) and rocket.AT_enabled and (not rocket.AT_oldDecal) then
+    rocket.AT_oldDecal = rocket:GetAttach("Logo"):GetEntity() -- save the old logo
+    rocket:GetAttach("Logo"):ChangeEntity("AutomatedTourismLogo")
+  end -- if rocket and (not reset)
+
+  -- reset one rocket to original decal
+  if rocket and reset and rocket.AT_oldDecal then
+    rocket:GetAttach("Logo"):ChangeEntity(rocket.AT_oldDecal)
+    rocket.AT_oldDecal = false
+  end -- if rocket and reset
+
+  -- reset all rockets if they have an old entity
+  if rocket or reset or applyAll then resetAll = false end -- just in case
+  if resetAll then
+    local rockets = UICity.labels.SupplyRocket or empty_table
+    for i = 1, #rockets do
+      if rockets[i].AT_oldDecal then
+        rockets[i]:GetAttach("Logo"):ChangeEntity(rockets[i].AT_oldDecal)
+        rockets[i].AT_oldDecal = false
+      end -- if rockets[i]
+    end -- for i
+  end -- if resetAll
+
+  -- apply to all rockets if mod enabled and rocket is an AT rocket
+  if rocket or reset or resetAll then applyAll = false end -- just in case
+  if applyAll and g_AT_modEnabled and g_AT_Options.ATreplaceLogo then
+    local rockets = UICity.labels.SupplyRocket or empty_table
+    for i = 1, #rockets do
+      -- dont overwrite old decal
+      if rockets[i].AT_enabled and (not rockets[i].AT_oldDecal) then
+        rockets[i].AT_oldDecal = rockets[i]:GetAttach("Logo"):GetEntity() -- save the old logo
+        rockets[i]:GetAttach("Logo"):ChangeEntity("AutomatedTourismLogo")
+      end -- if rockets[i].AT_enabled
+    end -- for i
+  end -- if resetAll
+end --ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
+
+
+
 --------------------------------------------------------- OnMsgs --------------------------------------------------------
 
 function OnMsg.CityStart()
@@ -377,6 +426,7 @@ function OnMsg.LoadGame()
   ATfixupSaves()
   g_AT_NumOfTouristRockets = ATcountATrockets()
   g_AT_RocketCheckComplete = true
+  ATreplaceRocketLogo(nil, nil, nil, true) -- applyAll
   -- remove any threads from landed rockets if AT is running
   if g_AT_modEnabled and g_AT_NumOfTouristRockets > 0 then
     ATStopDepartureThreads() -- stop all departure threads
