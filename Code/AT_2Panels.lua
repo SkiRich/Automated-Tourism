@@ -4,7 +4,7 @@
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated March 30th, 2021
+-- Updated March 31th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -45,6 +45,7 @@ function ATsetupVariables(rocket, init)
     rocket.AT_boarding_thread      = false    -- var hold boarding thread called from ATtoggleAutoExport()
     rocket.AT_GenDepartRan         = false    -- var holds status of GenerateDepartures
     rocket.AT_RecallRadiusMode     = "Mod Config Set" -- mode for recall radius
+    rocket.AT_oldDecal             = false    -- var that holds the old decal entitiy
   else
     g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets - 1
     if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
@@ -71,6 +72,7 @@ function ATsetupVariables(rocket, init)
     rocket.AT_GenDepartRan         = nil
     rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
     rocket.AT_RecallRadiusMode     = nil
+    rocket.AT_oldDecal             = nil
   end -- if init
 end -- ATsetupvariables(state)
 
@@ -305,7 +307,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.21"
+  local ATControlVer = "v1.22"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -397,6 +399,7 @@ function OnMsg.ClassesBuilt()
         local rocket = self.context
         if not rocket.AT_enabled then
           ATsetupVariables(rocket, true)
+          ATreplaceRocketLogo(rocket)
           self:SetIcon(iconATButtonOn)
           ATStopDepartureThreads(rocket) -- new for tourism patch there is a departure thread running all the time
           if ATcountTouristsOnEarth() > 0 then
@@ -412,6 +415,7 @@ function OnMsg.ClassesBuilt()
           rocket.AT_enabled = false
           self:SetIcon(iconATButtonOff)
           if rocket.auto_export then rocket:ATtoggleAutoExport() end
+          ATreplaceRocketLogo(rocket, true) -- reset before AT vars clearing
           ATsetupVariables(rocket, false)
           ATStartDepartureThreads() -- there is a departure thread running all the time for regular rockets
         end -- if not rocket.AT_enabled
