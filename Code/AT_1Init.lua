@@ -6,7 +6,7 @@
 -- Created May 1st, 2019
 -- Hotfix Jan 25th, 2020
 -- Tourism patch fixes March 15th 2021
--- Update April 1st, 2021
+-- Update April 2nd, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -55,7 +55,8 @@ local ATcolonistGenTraits = {
 } -- local ATcolonistGenTraits
 
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 0-50:  Next is 7
-local ModDir = CurrentModPath
+local ModDir   = CurrentModPath
+local mod_name = "Automated Tourism"
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 
 -- count the numbere of AT rockets in play
@@ -376,16 +377,37 @@ end -- ATejectColonists(rocket)
 -- resetAll: boolean,  loops through all rockets reseting any it find to original decals, should only be called from MCR
 -- applyAll: boolean,  loops through all rockets and applys new logo to AT rockets only, should only be called in LoadGame()
 function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
+  local AutoAttachObjects = AutoAttachObjects
+  local ModLog = ModLog
+  local logo
+  local sformat = string.format
+
   -- change one rocket to Mars Tourism Company
   -- dont run if we put something in there already
   if g_AT_Options.ATreplaceLogo and g_AT_modEnabled and rocket and (not reset) and rocket.AT_enabled and (not rocket.AT_oldDecal) then
-    rocket.AT_oldDecal = rocket:GetAttach("Logo"):GetEntity() -- save the old logo
-    rocket:GetAttach("Logo"):ChangeEntity("AutomatedTourismLogo")
+    logo = rocket:GetAttach("Logo")
+    -- reset the attaches, if they are missing
+    if not logo then
+      ModLog(sformat("ERROR: %s detected invalid attach Logo in rocket: %s attempting correction", mod_name, rocket.name))
+      if lf_print then print(sformat("ERROR: %s detected invalid attach Logo in rocket: %s", mod_name, rocket.name)) end
+      AutoAttachObjects(rocket)
+      logo = rocket:GetAttach("Logo")
+    end -- if not logo
+    rocket.AT_oldDecal = logo:GetEntity() -- save the old logo
+    logo:ChangeEntity("AutomatedTourismLogo")
   end -- if rocket and (not reset)
 
   -- reset one rocket to original decal
   if rocket and reset and rocket.AT_oldDecal then
-    rocket:GetAttach("Logo"):ChangeEntity(rocket.AT_oldDecal)
+    logo = rocket:GetAttach("Logo")
+    -- reset the attaches, if they are missing
+    if not logo then
+      ModLog(sformat("ERROR: %s detected invalid attach Logo in rocket: %s attempting correction", mod_name, rocket.name))
+      if lf_print then print(sformat("ERROR: %s detected invalid attach Logo in rocket: %s", mod_name, rocket.name)) end
+      AutoAttachObjects(rocket)
+      logo = rocket:GetAttach("Logo")
+    end -- if not logo
+    logo:ChangeEntity(rocket.AT_oldDecal)
     rocket.AT_oldDecal = false
   end -- if rocket and reset
 
@@ -394,8 +416,16 @@ function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
   if resetAll then
     local rockets = UICity.labels.SupplyRocket or empty_table
     for i = 1, #rockets do
-      if rockets[i].AT_oldDecal then
-        rockets[i]:GetAttach("Logo"):ChangeEntity(rockets[i].AT_oldDecal)
+      logo = rockets[i]:GetAttach("Logo")
+      -- reset the attaches, if they are missing
+      if not logo then
+        ModLog(sformat("ERROR: %s detected invalid attach Logo in rocket: %s attempting correction", mod_name, rockets[i].name))
+        if lf_print then print(sformat("ERROR: %s detected invalid attach Logo in rocket: %s", mod_name, rockets[i].name)) end
+        AutoAttachObjects(rockets[i])
+        logo = rockets[i]:GetAttach("Logo")
+      end -- if not logo
+      if rockets[i].AT_oldDecal and (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) then
+        logo:ChangeEntity(rockets[i].AT_oldDecal)
         rockets[i].AT_oldDecal = false
       end -- if rockets[i]
     end -- for i
@@ -406,10 +436,19 @@ function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
   if applyAll and g_AT_modEnabled and g_AT_Options.ATreplaceLogo then
     local rockets = UICity.labels.SupplyRocket or empty_table
     for i = 1, #rockets do
+      logo = rockets[i]:GetAttach("Logo")
+      -- reset the attaches, if they are missing
+      if not logo then
+        ModLog(sformat("ERROR: %s detected invalid attach Logo in rocket: %s attempting correction", mod_name, rockets[i].name))
+        if lf_print then print(sformat("ERROR: %s detected invalid attach Logo in rocket: %s", mod_name, rockets[i].name)) end
+        AutoAttachObjects(rockets[i])
+        logo = rockets[i]:GetAttach("Logo")
+        rockets[i].AT_oldDecal = false  -- allow for overwrite since attach busted
+      end -- if not logo
       -- dont overwrite old decal
-      if rockets[i].AT_enabled and (not rockets[i].AT_oldDecal) then
-        rockets[i].AT_oldDecal = rockets[i]:GetAttach("Logo"):GetEntity() -- save the old logo
-        rockets[i]:GetAttach("Logo"):ChangeEntity("AutomatedTourismLogo")
+      if rockets[i].AT_enabled and (not rockets[i].AT_oldDecal) and (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) then
+        rockets[i].AT_oldDecal = logo:GetEntity() -- save the old logo
+        logo:ChangeEntity("AutomatedTourismLogo")
       end -- if rockets[i].AT_enabled
     end -- for i
   end -- if resetAll

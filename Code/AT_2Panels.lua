@@ -4,14 +4,15 @@
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated April 1st, 2021
+-- Updated April 2nd, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
 
-local ModDir = CurrentModPath
+local ModDir   = CurrentModPath
+local mod_name = "Automated Tourism"
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 117
 local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"

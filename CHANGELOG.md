@@ -10,19 +10,23 @@
 - ATtoggleAutoExport()
  - new logic, count variables if departures already exist
 - function ATcountTouristsOnEarth() - made global
+- function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
+ - doing a test for entites now, just in case of attach loss
 
 #### Added
 - various ModLog messages
 - validity checks in function ATejectColonists(rocket)
+- added AT_firstRun variable to AT stack
+- auto attach code to entities in function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
 
 #### Removed
 
 #### Fixed Issues
 - loosing thread handles
 - wrong statistics if initiating AT and there are departures already boarded
+- errors thrown when new logo entity attach is missing
 
 #### Open Issues
-- errors thrown when new logo entity attach is missing
 
 #### Deprecated
 
