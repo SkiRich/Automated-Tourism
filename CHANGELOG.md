@@ -1,4 +1,34 @@
 # Automated Tourism
+## v1.11.1 04/01/2021 3:37:35 PM
+#### Changed
+- ATsetupVariables(rocket, init)
+ - added kill to threads in init, just in case and moved AT_enabled = nil to last place
+ - modified AT_leaving_colonists and AT_boarded_colonists to match existing stats in case boarding was alreading happening
+- ATflashStatus(rocket, status1, status2, enable) - added rocket var check
+- rocket:AttachSign(true, "SignTradeRocket") -- all instances now use true/false instead of variable, no need to reference var
+- moved threadlimits vars into threads
+- ATtoggleAutoExport()
+ - new logic, count variables if departures already exist
+- function ATcountTouristsOnEarth() - made global
+
+#### Added
+- various ModLog messages
+- validity checks in function ATejectColonists(rocket)
+
+#### Removed
+
+#### Fixed Issues
+- loosing thread handles
+- wrong statistics if initiating AT and there are departures already boarded
+
+#### Open Issues
+- errors thrown when new logo entity attach is missing
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.11 03/31/2021 3:25:36 PM
 #### Changed
 - .gitignore to not git new images and entities
