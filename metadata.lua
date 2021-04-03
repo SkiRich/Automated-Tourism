@@ -1,8 +1,8 @@
 return PlaceObj('ModDef', {
 	'title', "Automated Tourism",
-	'description', "Automated Tourism\nv1.11.1\nhttps://steamcommunity.com/sharedfiles/filedetails/?id=1736068322\nby SKiRich",
+	'description', "Automated Tourism\nv2.0 by SKiRich\nFor Details See:\nhttps://steamcommunity.com/sharedfiles/filedetails/?id=1736068322",
 	'image', "AutomatedTourism.png",
-	'last_changes', "v1.11.1 April 2nd, 2021",
+	'last_changes', "v2.0 April 3rd, 2021",
 	'ignore_files', {
 		"*.git/*",
 		"*.svn/*",
@@ -14,7 +14,7 @@ return PlaceObj('ModDef', {
 	'pops_desktop_uuid', "c515e2e3-ff0a-4dc2-91f4-c6b58431e755",
 	'pops_any_uuid', "44a35da1-f32e-4034-a8e5-4280e705a553",
 	'author', "SkiRich",
-	'version', 91,
+	'version', 94,
 	'lua_revision', 233360,
 	'saved_with_revision', 1001569,
 	'bin_assets', true,
@@ -23,6 +23,6 @@ return PlaceObj('ModDef', {
 		"Code/AT_2Panels.lua",
 		"Code/AT_3ModConfig.lua",
 	},
-	'saved', 1617422512,
+	'saved', 1617476105,
 	'screenshot1', "Images/AutomatedTourism.png",
 })
