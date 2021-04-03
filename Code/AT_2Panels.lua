@@ -320,7 +320,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.24"
+  local ATControlVer = "v1.26"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -380,9 +380,6 @@ function OnMsg.ClassesBuilt()
       "RolloverDisabledText", T{StringIdBase + 103, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
       "OnContextUpdate", function(self, context)
         local rocket = context
-        local ATcountTouristsOnEarth = ATcountTouristsOnEarth
-        local ATsetButtonStatus = ATsetButtonStatus
-        local T = T
 
         -- enable or disable AT button based on exports
         if rocket.allow_export then
@@ -424,8 +421,8 @@ function OnMsg.ClassesBuilt()
             rocket.AT_status = "flytoearth"
           end -- if ATcountTouristsOnEarth()
           if not rocket.auto_export then
-            rocket:ATtoggleAutoExport()
             rocket:ReturnStockpiledResources() -- dump any resources on landing pad so we can launch
+            rocket:ATtoggleAutoExport()
           end -- if not rocket.auto_export
         else
           self:SetIcon(iconATButtonOff)

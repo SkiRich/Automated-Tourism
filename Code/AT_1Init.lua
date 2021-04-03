@@ -232,15 +232,18 @@ end -- function ATStartDepartureThreads()
 -- stop all the departure threads on all landed rockets of all types.
 -- devs made a mistake and thiss should have never happened.
 -- made global - used in all files
+-- new for tourism patch there is a departure thread running all the time
 function ATStopDepartureThreads(rocket)
+  local rockets
+
   -- kill the current rocket thread immediatly
-  if rocket then rocket:StopDepartureThread() end -- new for tourism patch there is a departure thread running all the time
+  if rocket then rocket:StopDepartureThread() end
 
   -- check all landed supply rockets for thread and kill
   -- dont kill if g_AT_Options.ATpreventDepart is false
   -- only for landed supply rockets
   if g_AT_Options.ATpreventDepart then
-    local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+    rockets = UICity and UICity.labels.SupplyRocket or empty_table
     for i = 1, #rockets do
       if rockets[i]:IsRocketOnMars() then
         rockets[i]:StopDepartureThread()
@@ -251,7 +254,7 @@ function ATStopDepartureThreads(rocket)
 
   -- check all landed trade rockets for thread and kill - what where they thinking letting these have departure threads
   -- only for landed trade rockets
-  local rockets = UICity and UICity.labels.TradeRocket or empty_table
+  rockets = UICity and UICity.labels.TradeRocket or empty_table
   for i = 1, #rockets do
     if rockets[i]:IsRocketOnMars() then
       rockets[i]:StopDepartureThread()
@@ -261,7 +264,7 @@ function ATStopDepartureThreads(rocket)
 
   -- check all landed foreign trade rockets for thread and kill - what where they thinking letting these have departure threads
   -- only for landed trade rockets
-  local rockets = UICity and UICity.labels.ForeignTradeRocket or empty_table
+  rockets = UICity and UICity.labels.ForeignTradeRocket or empty_table
   for i = 1, #rockets do
     if rockets[i]:IsRocketOnMars() then
       rockets[i]:StopDepartureThread()
@@ -281,32 +284,29 @@ local function ATejectColonists(rocket)
     for i = 1, #rocket.boarded do
       local colonist = rocket.boarded[i]
       tEjectedColonists[i] = {}
-      for traitCategory, traitList in pairs(ATcolonistGenTraits) do
+      for _, traitList in pairs(ATcolonistGenTraits) do
         for j = 1, #traitList do
           local data = traitList[j]
           if colonist[data] then tEjectedColonists[i][data] = colonist[data] end
-        end --for keepTrait
-      end -- for traitCategory, trait
+        end -- for j
+      end -- for _, trait
       if tEjectedColonists[i].sols and tEjectedColonists[i].sols > 0 then tEjectedColonists[i].oldSols = tEjectedColonists[i].sols end -- need to replace this after generating new colonist
     end -- for i
-    rocket.AT_tejectColonists = tEjectedColonists
 
     -- just in case
     if rocket and rocket.AT_eject_thread and IsValidThread(rocket.AT_eject_thread) then DeleteThread(rocket.AT_eject_thread) end
 
     -- start a thread here to allow for disembarking time
     if IsValid(rocket) and (not IsValidThread(rocket.AT_eject_thread)) then
-      rocket.AT_eject_thread = CreateGameTimeThread(function(rocket)
+      rocket.AT_eject_thread = CreateGameTimeThread(function(rocket, tEjectedColonists)
         rocket.disembarking = {}
         rocket.disembarking_confused = false
-        local IsValid = IsValid
         local city = rocket.city
         local domes, safety_dome = GetDomesInWalkableDistance(city, rocket:GetPos())
         local num_colonists = 0
         local num_tourists = 0
-        local TouristSolsOnMarsMax = g_Consts.TouristSolsOnMarsMax
-        local OverstayingTourists = g_OverstayingTourists
-        for i = 1, #tEjectedColonists do
+
+        for _ in ipairs(tEjectedColonists) do
           local applicant = table.remove(tEjectedColonists)
           if applicant then
             if applicant.traits.Tourist then
@@ -327,8 +327,8 @@ local function ATejectColonists(rocket)
             end -- if colonist.oldSols
             -- if the time is an overstay put them back in the overstay group
             -- no need to modify their satifaction, its already accounted for
-           if colonist.traits.Tourist and colonist.sols >= TouristSolsOnMarsMax then
-             OverstayingTourists[#OverstayingTourists + 1] = colonist
+           if colonist.traits.Tourist and colonist.sols >= g_Consts.TouristSolsOnMarsMax then
+             g_OverstayingTourists[#g_OverstayingTourists + 1] = colonist
              if HintsEnabled then
                HintTrigger("HintOverstayingTourists")
              end
@@ -337,13 +337,14 @@ local function ATejectColonists(rocket)
             rocket.disembarking[#rocket.disembarking + 1] = colonist
             Sleep(1000 + Random(0, 500))
           end -- if applicant
-        end -- for i
+        end -- for _
 
         -- hold rocket until all have left rocket
-        -- add a check to make sure rocket is not demolished
-        while IsValid(rocket) and #rocket.disembarking > 0 do
+        local tick = 3000 -- cant wait forever so max time to exit is 300 seconds
+        while IsValid(rocket) and (#rocket.disembarking > 0) and (tick > 0) do
           rocket:CheckDisembarkationTable()
-          Sleep(100)
+          Sleep(100) -- 1/10 of a second
+          tick = tick - 1
         end -- while
 
         if num_colonists > 0 then
@@ -353,18 +354,16 @@ local function ATejectColonists(rocket)
           AddOnScreenNotification("NewTourists", nil, {count = num_tourists}, {rocket})
         end -- if num_tourists
         if rocket.disembarking_confused then
-          AddOnScreenNotification("ConfusedColonists", nil, {}, {
-            rocket:GetPos()
-          })
+          AddOnScreenNotification("ConfusedColonists", nil, {}, {rocket:GetPos()})
         end -- if self.disembarking_confuse
 
         Msg("ColonistsLanded")
 
         rocket.disembarking = nil
         rocket.boarded = nil
-        rocket.AT_departures = nil
+        rocket.AT_departures = nil -- just in case
 
-      end, rocket) -- AT_eject_thread
+      end, rocket, tEjectedColonists) -- AT_eject_thread
     end --if not IsValidThread
   end -- if rocket.boarded
 end -- ATejectColonists(rocket)
@@ -488,13 +487,14 @@ function OnMsg.RocketReachedEarth(rocket)
       rocket.AT_departures = 0
       rocket.AT_leaving_colonists = 0      -- var holds the colonists wanting to leave
       rocket.AT_boarded_colonists = 0      -- var holds the colonists that boarded
+      rocket.departures = {}
+      rocket.boarding = {}
       rocket.boarded = {}
     elseif rocket.AT_departures then
-      -- remove variables if there were departures on a non AT rocket, once it reaches earth
+      -- remove variables if there were departures on a non AT rocket, just in case - should not ever happen
       rocket.AT_departures = nil
       rocket.AT_leaving_colonists = nil
       rocket.AT_boarded_colonists = nil
-      rocket.boarded = nil
     end -- if rocket.AT_enabled
   end -- if g_AT_modEnabled
 end -- OnMsg.RocketReachedEarth(rocket)
@@ -561,10 +561,8 @@ function OnMsg.RocketLanded(rocket)
 
     -- if a thread is already running then delete it (should never happen)
     if IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end
-
     -- create thread to wait before launch up to X days if no tourists departing
     rocket.AT_depart_thread = CreateGameTimeThread(function(rocket)
-      local IsValid = IsValid
       if rocket.auto_export then rocket:ToggleAutoExport() end -- turn off auto launch sequence
       rocket:AttachSign(true, "SignTradeRocket")
 
@@ -578,7 +576,7 @@ function OnMsg.RocketLanded(rocket)
       rocket.AT_departuretimeText = ""
 
       -- check AT_GenDepartRan the var, which is set in the new GenerateDepartures function
-      while IsValid(rocket) and (not rocket.AT_GenDepartRan) do
+      while IsValid(rocket) and (rocket.AT_enabled) and (not rocket.AT_GenDepartRan) do
         Sleep(100) -- wait a moment to check if GenerateDepartures finished
       end -- while rocket.AT_GenDepartRan
       rocket.AT_GenDepartRan = false
@@ -594,7 +592,7 @@ function OnMsg.RocketLanded(rocket)
         Sleep(2000) -- pause a moment and reset the AT_last_arrival_time to the moment all passengers debark
       end -- if rocket.cargo
       rocket.AT_arriving_tourists = 0
-      ATflashStatus(rocket) -- kill thread
+      ATflashStatus(rocket) -- kill status thread
       rocket.AT_status = "landed"
       rocket.AT_last_arrival_time = GameTime() -- set the arrival time when rocket touches down, used to calc next departure
 
@@ -603,14 +601,14 @@ function OnMsg.RocketLanded(rocket)
         print("Calculating departure time: ", rocket.name)
       end -- if lf_print
 
-      -- set departure time and have_depatures
+      -- set departure time and have_departures
       ATcalcDepartureTime(rocket)
 
       if not rocket.AT_have_departures then
         -- if not departures
         if lf_print then print(string.format("Rocket %s waiting until %s - No current departures", rocket.name, rocket.AT_departuretimeText)) end
         rocket.AT_status = "waitdepart"
-        while (GameTime() < rocket.AT_departuretime) do
+        while IsValid(rocket) and rocket.AT_enabled and (GameTime() < rocket.AT_departuretime) do
           Sleep(5000) -- sleep 5 seconds at a time
         end -- while GameTime
         -- call tourists to rocket
@@ -619,7 +617,7 @@ function OnMsg.RocketLanded(rocket)
         rocket:GenerateDepartures(true, true) -- count the earthsick and the tourists
         -- reset departure time and have_departures if there are departures
         -- check the var, which is set in the new GenerateDepartures function
-        while not rocket.AT_GenDepartRan do
+        while IsValid(rocket) and rocket.AT_enabled and (not rocket.AT_GenDepartRan) do
           Sleep(500)
         end -- while rocket.AT_GenDepartRan
         rocket.AT_GenDepartRan = false
@@ -638,7 +636,7 @@ function OnMsg.RocketLanded(rocket)
         local flashwarn = false
         -- if we have departures then reset and start countdown
         if lf_print then print(string.format("Rocket %s has %s departures, departing %s", rocket.name, #rocket.departures, rocket.AT_departuretimeText)) end
-        while (GameTime() < rocket.AT_departuretime) do
+        while IsValid(rocket) and rocket.AT_enabled and (GameTime() < rocket.AT_departuretime) do
           Sleep(2000) -- sleep 2 seconds at a time
           if not flashwarn and (GameTime() >= (rocket.AT_departuretime - (3 * const.HourDuration))) and (rocket.AT_leaving_colonists ~= rocket.AT_boarded_colonists) then -- warn 3 hours before
             flashwarn = true
@@ -775,26 +773,24 @@ function OnMsg.ClassesGenerate()
   -- prevents launch of rocket if there are tourists leaving mars until they board when turning on AT
   function SupplyRocket:ATtoggleAutoExport()
     local rocket = self
-    if (not rocket.auto_export) and rocket.departures then
+    if (not rocket.auto_export) and rocket.AT_firstRun and rocket.departures then
       -- we have departures coming to the rocket, so wait and start counting
       if IsValidThread(rocket.AT_boarding_thread) then DeleteThread(rocket.AT_boarding_thread) end -- just in case
       rocket.AT_boarding_thread = CreateGameTimeThread(function(rocket)
-        local tick = 0
-        local IsValid = IsValid
+        local tick = 3000 -- cant wait forever, so we'll wait 300 seconds max
         if rocket.AT_leaving_colonists > 0 then ATflashStatus(rocket, "warnleaving", "boarding", true) end -- set the flash status if there are departures
-        -- cant wait forever, so we'll wait 300 seconds max
         repeat
           -- tick up the counters for the infopanel as they board
           rocket.AT_boarded_colonists = (rocket.boarded and #rocket.boarded) or 0
           rocket.AT_departures = (rocket.boarded and #rocket.boarded) or 0
           Sleep(100) -- wait 1/10 of one second
-          tick = tick + 1
-        until (not IsValid(rocket)) or ((#rocket.departures < 1) and (#rocket.boarding < 1)) or (tick >= 3000)
+          tick = tick - 1
+        until (not IsValid(rocket)) or ((#rocket.departures < 1) and (#rocket.boarding < 1)) or (tick <= 0)
         -- true up stats in case colonists came aboard while thread slept
         rocket.AT_boarded_colonists = (rocket.boarded and #rocket.boarded) or 0
         rocket.AT_departures = (rocket.boarded and #rocket.boarded) or 0
         ATflashStatus(rocket, "boardcomplete", "warnleaving", true)
-        Sleep(20000) -- wait 20 seconds to let the last colonists on the ramp inside
+        Sleep(15000) -- wait 15 seconds to let the last colonists on the ramp inside
         ATflashStatus(rocket) -- kill status thread
         Sleep(250) -- give the status thread a chance to exit
         if ATcountTouristsOnEarth() > 0 then
@@ -807,6 +803,7 @@ function OnMsg.ClassesGenerate()
       end, rocket) -- rocket.AT_boarding_thread
     else
       rocket:ToggleAutoExport()  -- no rocket departure table or we are turning AT off then just execute
+      rocket.AT_firstRun = false
     end -- if rocket.departures
   end -- SupplyRocket:ATtoggleAutoExport()
 
@@ -815,10 +812,14 @@ function OnMsg.ClassesGenerate()
   -- to eject tourists and earthsick
   local Old_RocketExpedition_Takeoff = RocketExpedition.Takeoff
   function RocketExpedition:Takeoff()
-    if g_AT_modEnabled and self.boarded and #self.boarded > 0 then
+    if g_AT_modEnabled and (not self:IsDemolishing()) and self.boarded and #self.boarded > 0 then
+      self:UpdateStatus("countdown")  -- no turning back now
       ATejectColonists(self)
-      while self.boarded do
-        Sleep(100)
+      local tick = 600 -- cant wait forever so wait twice as long as the eject thread should take
+      -- boarded will nil out when eject thread is done
+      while self.boarded and (tick > 0) do
+        Sleep(1000) -- one second
+        tick = tick - 1
       end -- while
       return Old_RocketExpedition_Takeoff(self)
     else
@@ -848,7 +849,7 @@ function OnMsg.ClassesGenerate()
   -- local Old_SupplyRocket_UIOpenTouristOverview = SupplyRocket.UIOpenTouristOverview -- not needed since old one is broke dick
   function SupplyRocket:UIOpenTouristOverview(reward_info)
     local tourists = {}
-    local boarded = self.boarded or ""
+    local boarded = self.boarded or empty_table
     for i = 1, #boarded do
       local colonist = self.boarded[i]
       if colonist.traits.Tourist then
@@ -974,7 +975,7 @@ function OnMsg.ClassesGenerate()
           -- rocket.AT_departures = rocket.AT_boarded_colonists --legacy pre tourist patch code - leave it
         end -- if rocket.AT_enabled
 
-        --@@@msg ColonistLeavingMars, colonist, rocket - fired when any colonist is leaving Mars
+        --msg ColonistLeavingMars, colonist, rocket - fired when any colonist is leaving Mars
         Msg("ColonistLeavingMars", self, rocket)
         RebuildInfopanel(self)
       end) -- self:PushDestructor
@@ -996,6 +997,7 @@ function OnMsg.ClassesGenerate()
     if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
       return Old_RocketBase_ClearDepartures(self)
     end -- if not self.AT_enabled
+
     if arrive_on_earth then
       self.departures = nil
       self.boarding = nil
