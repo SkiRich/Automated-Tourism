@@ -1,4 +1,49 @@
 # Automated Tourism
+## v1.11.1 04/01/2021 3:37:35 PM
+#### Changed
+- ATsetupVariables(rocket, init)
+ - added kill to threads in init, just in case and moved AT_enabled = nil to last place
+ - modified AT_leaving_colonists and AT_boarded_colonists to match existing stats in case boarding was alreading happening
+
+- ATflashStatus(rocket, status1, status2, enable) - added rocket var check
+- rocket:AttachSign(true, "SignTradeRocket") -- all instances now use true/false instead of variable, no need to reference var
+- moved threadlimits vars into threads
+- ATtoggleAutoExport()
+ - new logic, count variables if departures already exist
+
+- function ATcountTouristsOnEarth() - made global
+- function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
+ - doing a test for entites now, just in case of attach loss
+
+- xTemplate - optimizations
+- changed all threads to make sure they run IsValid and/or a threadlimit countdown, to prevent runaway threads
+- function RocketExpedition:Takeoff() - added countdown status to commit rocket
+- various minor code tweaks for improved execution and logic
+- on first run dump resources before toggling auto export - panels
+
+#### Added
+- various ModLog messages
+- validity checks in function ATejectColonists(rocket)
+- added AT_firstRun variable to AT stack
+- auto attach code to entities in function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
+
+#### Removed
+- localized functions in threads
+- localized global vars in threads
+
+#### Fixed Issues
+- loosing thread handles
+- wrong statistics if initiating AT and there are departures already boarded
+- errors thrown when new logo entity attach is missing
+- localized functions in threads throwing errors when loading save and thread still running - GameTime()
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+--------------------------------------------------------
 ## v1.11 03/31/2021 3:25:36 PM
 #### Changed
 - .gitignore to not git new images and entities
