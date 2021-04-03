@@ -1,5 +1,5 @@
 # Automated Tourism
-#### v1.9.0 March 27th, 2021
+#### v2.0 April 3rd, 2021
 
 #### Tito Patch Compatible
 
