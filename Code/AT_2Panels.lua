@@ -4,14 +4,15 @@
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated March 31th, 2021
+-- Updated April 2nd, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
 
-local ModDir = CurrentModPath
+local ModDir   = CurrentModPath
+local mod_name = "Automated Tourism"
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 117
 local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
@@ -24,15 +25,25 @@ local imageClock        = table.concat({"<image ", iconClock, " 1300>"})
 
 --  setup or tear down all the AT variables in a rocket
 function ATsetupVariables(rocket, init)
+  -- short circuit, just in case
+  if not rocket then
+    ModLog(string.format("ERROR: %s detected invalid rocket in ATsetupVariables(rocket, init)", mod_name))
+    return
+  end -- if not rocket
   if init then
+    -- just in case these exist, kill them first
+    if rocket.AT_depart_thread   and IsValidThread(rocket.AT_depart_thread)   then DeleteThread(rocket.AT_depart_thread)   end -- kill the departure thread if its running
+    if rocket.AT_status_thread   and IsValidThread(rocket.AT_status_thread)   then DeleteThread(rocket.AT_status_thread)   end -- kill the status thread if its running
+    if rocket.AT_boarding_thread and IsValidThread(rocket.AT_boarding_thread) then DeleteThread(rocket.AT_boarding_thread) end -- kill the boarding thread if its running
     g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets + 1 -- increment the global counter
-    rocket.AT_enabled              = true   -- var used to turn system on/off
+    rocket.AT_enabled              = true     -- var used to turn system on/off
+    rocket.AT_firstRun             = true     -- var used for very first pickup run
     rocket.AT_departures           = rocket.AT_departures or (rocket.boarded and #rocket.boarded) or 0  -- number of tourists returning to earth, keep departures if cycling button on/off, count boarded
     rocket.AT_arriving_tourists    = 0        -- number of tourists picked up from earth
     rocket.AT_departuretime        = 0        -- gametime var for departure time
-    rocket.AT_have_departures      = false    -- bool var to signify we got departures onnboard
-    rocket.AT_leaving_colonists    = 0        -- var holds the colonists wanting to leave
-    rocket.AT_boarded_colonists    = 0        -- var holds the colonists that boarded
+    rocket.AT_have_departures      = false    -- bool var to signify we got departures onboard
+    rocket.AT_leaving_colonists    = ((rocket.departures and #rocket.departures or 0)+(rocket.boarding and #rocket.boarding or 0)+(rocket.boarded and #rocket.boarded or 0))   -- var holds the colonists wanting to leave
+    rocket.AT_boarded_colonists    = (rocket.boarded and #rocket.boarded) or 0       -- var holds the colonists that boarded
     rocket.AT_departuretimeText    = ""       -- text representation of gametime var
     rocket.AT_last_arrival_time    = 0        -- gametime var for last time rocket landed
     rocket.AT_touristBoundary      = false    -- var holds circle object for tourist boundary
@@ -47,14 +58,13 @@ function ATsetupVariables(rocket, init)
     rocket.AT_RecallRadiusMode     = "Mod Config Set" -- mode for recall radius
     rocket.AT_oldDecal             = false    -- var that holds the old decal entitiy
   else
-    g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets - 1
+    if rocket.AT_enabled then g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets - 1 end
     if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
     rocket.AT_depart_thread        = nil
     if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill the status thread if its running
     rocket.AT_status_thread        = nil
     if rocket.AT_boarding_thread and IsValidThread(rocket.AT_boarding_thread) then DeleteThread(rocket.AT_boarding_thread) end -- kill the boarding thread if its running
     rocket.AT_boarding_thread      = nil
-    rocket.AT_enabled              = nil
     if rocket.AT_departures and (rocket.AT_departures < 1) then rocket.AT_departures = nil end -- if departures > 0 then keep departures if cycling on/off
     rocket.AT_arriving_tourists    = nil
     rocket.AT_departuretime        = nil
@@ -63,16 +73,18 @@ function ATsetupVariables(rocket, init)
     rocket.AT_boarded_colonists    = nil      -- var holds the colonists that boarded
     rocket.AT_departuretimeText    = nil
     rocket.AT_last_arrival_time    = nil
-    ATtoggleTouristBoundary(rocket, false) -- clear the tourist recall boundary
+    ATtoggleTouristBoundary(rocket, false)    -- clear the tourist recall boundary
     rocket.AT_touristBoundary      = nil
     rocket.AT_last_voyage_time     = nil
     rocket.AT_next_voyage_time     = nil
     rocket.AT_next_voyage_timeText = nil
     rocket.AT_status               = nil
     rocket.AT_GenDepartRan         = nil
-    rocket:AttachSign(rocket.AT_enabled, "SignTradeRocket") -- remove sign
+    rocket:AttachSign(false, "SignTradeRocket") -- remove sign
     rocket.AT_RecallRadiusMode     = nil
     rocket.AT_oldDecal             = nil
+    rocket.AT_firstRun             = nil
+    rocket.AT_enabled              = nil      -- keep this last
   end -- if init
 end -- ATsetupvariables(state)
 
@@ -142,7 +154,8 @@ end -- ATsetButtonStatus(rocket)
 
 
 -- returns the number of tourists waiting on earth
-local function ATcountTouristsOnEarth()
+-- global used in Init file
+function ATcountTouristsOnEarth()
   local applicantPool = g_ApplicantPool or ""
   local findTrait = "Tourist"
   local count = 0
@@ -195,16 +208,16 @@ end -- ATUpdateStatusText(rocket)
 function ATflashStatus(rocket, status1, status2, enable)
   rocket.AT_status = false
   -- delete thread and exit if not enabled
-  if not enable and rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then
+  if not enable and rocket and rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then
     DeleteThread(rocket.AT_status_thread)
     rocket.AT_status_thread = false
     return
   end -- kill the status thread if its running
   if enable and rocket and status1 and status2 then
     if rocket.AT_status_thread and IsValidThread(rocket.AT_status_thread) then DeleteThread(rocket.AT_status_thread) end -- kill thread if still running
-    local threadlimit = 500 -- prevent runaway threads
     rocket.AT_status_thread = CreateGameTimeThread(function(rocket, stat1, stat2)
       if lf_print then print(string.format("Status thread started.  Status1: %s,  Status2: %s", stat1, stat2)) end
+      local threadlimit = 500 -- prevent runaway threads
       while IsValid(rocket) and threadlimit > 0 do
         rocket.AT_status = stat1
         Sleep(1000) -- wait 1 seconds
@@ -307,7 +320,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.22"
+  local ATControlVer = "v1.26"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -376,7 +389,7 @@ function OnMsg.ClassesBuilt()
         end -- if auto exporting
 
         -- begin flash sequence for status
-        if not self.cxFlashStatus and rocket.AT_status == "boarding" and rocket.AT_boarded_colonists >= rocket.AT_leaving_colonists then
+        if (not rocket.AT_firstRun) and (not self.cxFlashStatus) and (rocket.AT_status == "boarding") and (rocket.AT_boarded_colonists >= rocket.AT_leaving_colonists) then
           ATflashStatus(rocket, "boardcomplete", "waitdepart", true)
           self.cxFlashStatus = true
         end -- if rocket.AT_status
@@ -408,11 +421,10 @@ function OnMsg.ClassesBuilt()
             rocket.AT_status = "flytoearth"
           end -- if ATcountTouristsOnEarth()
           if not rocket.auto_export then
-            rocket:ATtoggleAutoExport()
             rocket:ReturnStockpiledResources() -- dump any resources on landing pad so we can launch
+            rocket:ATtoggleAutoExport()
           end -- if not rocket.auto_export
         else
-          rocket.AT_enabled = false
           self:SetIcon(iconATButtonOff)
           if rocket.auto_export then rocket:ATtoggleAutoExport() end
           ATreplaceRocketLogo(rocket, true) -- reset before AT vars clearing
@@ -448,8 +460,8 @@ function OnMsg.ClassesBuilt()
           local rocket = context
           -- check for new vars on existing rockets
           if rocket.AT_enabled and (type(rocket.AT_boarded_colonists) == "nil") then
-            rocket.AT_boarded_colonists = 0
-            rocket.AT_leaving_colonists = 0
+            rocket.AT_boarded_colonists = (rocket.boarded and #rocket.boarded) or 0
+            rocket.AT_leaving_colonists = ((rocket.departures and #rocket.departures or 0)+(rocket.boarding and #rocket.boarding or 0)+(rocket.boarded and #rocket.boarded or 0))
           end -- if type
 
           if not self.cxROtext then
