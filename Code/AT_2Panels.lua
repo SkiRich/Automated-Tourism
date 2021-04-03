@@ -1,10 +1,9 @@
 -- Code developed for Automated Tourism
--- Author @SkiRich
--- All rights reserved, duplication and modification prohibited.
+-- Coyright 2018-2021 SkiRich @ Szkodzinski.com
+-- All rights reserved, terms of use is governed by license, see LICENSE file for details
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
--- You may not copy it, package it, or claim it as your own.
 -- Created May 1st, 2019
--- Updated April 2nd, 2021
+-- Updated April 3rd, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
