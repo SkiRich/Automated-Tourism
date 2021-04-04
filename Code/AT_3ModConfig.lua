@@ -12,14 +12,15 @@ local lf_print = false -- Setup debug printing in local file
 local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 79
 local steam_id = "1736068322"
 local mod_name = "Automated Tourism"
-local ModConfig_id = "1542863522"
-local ModConfigWaitThread = false
 local ModDir = CurrentModPath
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 local imageATrockets   = ModDir.."UI/Messages/AT_Rockets_Takeoff.png"
 local msgModEnabled  = T{StringIdBase + 72, "Automatic Tourism is enabled"}
 local msgModDisabled = T{StringIdBase + 73, "Automatic Tourism is disabled"}
-g_ModConfigLoaded = false
+local TableFind  = table.find
+local ModConfig_id        = "1542863522"
+local ModConfigWaitThread = false
+local ModConfigLoaded     = TableFind(ModsLoaded, "steam_id", ModConfig_id) or false
 
 
 -- wait for mod config to load or fail out and use defaults
@@ -27,29 +28,24 @@ local function WaitForModConfig()
   if (not ModConfigWaitThread) or (not IsValidThread(ModConfigWaitThread)) then
     ModConfigWaitThread = CreateRealTimeThread(function()
       if lf_print then print(string.format("%s WaitForModConfig Thread Started", mod_name)) end
-      local Sleep = Sleep
-      local TableFind  = table.find
-      local ModsLoaded = ModsLoaded
       local options = g_AT_Options -- table where all the mod options are stored
-      local threadlimit = 120  -- loops to wait before fail and exit thread loop
-       while threadlimit > 0 do
-         --check to make sure another mod didn't already set g_ModConfigLoaded
-         if not g_ModConfigLoaded then
-           g_ModConfigLoaded = TableFind(ModsLoaded, "steam_id", ModConfig_id) or false
-         end -- if not g_ModConfigLoaded
-         if g_ModConfigLoaded and ModConfig:IsReady() then
-           -- if ModConfig loaded and is in ready state then set as true
-           g_ModConfigLoaded = true
-           break
-         else
-           Sleep(500) -- Sleep 1/2 second
-         end -- if g_ModConfigLoaded
-         threadlimit = threadlimit - 1
-       end -- while
+      local tick = 240  -- (60 seconds) loops to wait before fail and exit thread loop
+      while tick > 0 do
+        if ModConfigLoaded and ModConfig:IsReady() then
+          -- if ModConfig loaded and is in ready state then break out of loop
+          if lf_print then print(string.format("%s Found Mod Config", mod_name)) end
+          tick = 0
+          break
+        else
+          tick = tick -1
+          Sleep(250) -- Sleep 1/4 second
+          ModConfigLoaded = TableFind(ModsLoaded, "steam_id", ModConfig_id) or false
+        end -- if ModConfigLoaded
+      end -- while
       if lf_print then print(string.format("%s WaitForModConfig Thread Continuing", mod_name)) end
 
       -- See if ModConfig is installed and any defaults changed
-      if g_ModConfigLoaded and ModConfig:IsReady() then
+      if ModConfigLoaded and ModConfig:IsReady() then
 
         options.ATdismissMsg = ModConfig:Get("Automated_Tourism", "ATdismissMsg")
         if not options.ATdismissMsg then
@@ -67,10 +63,10 @@ local function WaitForModConfig()
         options.ATfoodPerTourist  = ModConfig:Get("Automated_Tourism", "ATfoodPerTourist")
 
         -- g_AT_modEnabled g_AT_NumOfTouristRockets enable mod checks
-        local tick = 0 -- wait up to 120 seconds for this
-        while (not g_AT_RocketCheckComplete) and (tick < 1200) do
-          Sleep (100) -- wait until check is complete
-          tick = tick + 1
+        tick = 1200 -- wait up to 120 seconds for this
+        while (not g_AT_RocketCheckComplete) and (tick > 0) do
+          Sleep (100) -- 1/10 sec - wait until check is complete
+          tick = tick - 1
         end -- while
 
         -- check and set for g_AT_modEnabled - only worry about turning it off
@@ -109,11 +105,12 @@ local function WaitForModConfig()
 
         ModLog(string.format("%s detected ModConfig running - Setup Complete", mod_name))
       else
-        -- PUT MOD DEFAULTS HERE OR SET THEM UP BEFORE RUNNING THIS FUNCTION ---
+        -- PUT MOD DEFAULTS HERE OR SET THEM UP BEFORE RUNNING THIS FUNCTION --
+        -- Automated Tourism default are setup in Init File
 
         if lf_print then print(string.format("**** %s - Mod Config Never Detected On Load - Using Defaults ****", mod_name)) end
         ModLog(string.format("**** %s - Mod Config Never Detected On Load - Using Defaults ****", mod_name))
-      end -- end if g_ModConfigLoaded
+      end -- end if ModConfigLoaded
       if lf_print then print(string.format("%s WaitForModConfig Thread Ended", mod_name)) end
     end) -- thread
   else
@@ -122,6 +119,7 @@ local function WaitForModConfig()
   end -- check to make sure thread not running
 end -- WaitForModConFig
 
+-- on screen warning about not turning off AT
 local function ATWarnATrocketsEnabled(num_rockets)
   CreateRealTimeThread(function()
       local params = {
@@ -138,7 +136,6 @@ end -- function end
 ---------------------------------------------- OnMsgs -------------------------------------------------------------------
 
 function OnMsg.ModConfigReady()
-  local StringIdBase = 17764702300 -- Automated Tourism
 
     -- Register this mod's name and description
     ModConfig:RegisterMod("Automated_Tourism", -- ID
@@ -258,7 +255,7 @@ end -- ModConfigReady
 
 
 function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
-  if g_ModConfigLoaded and (mod_id == "Automated_Tourism") and (token ~= "reset") then
+  if ModConfigLoaded and (mod_id == "Automated_Tourism") and (token ~= "reset") then
 
     -- AT_modEnabled
     if option_id == "AT_modEnabled" then
@@ -366,7 +363,7 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
       end -- if value
     end -- g_AT_Options.ATreplaceLogo
 
-  end -- if g_ModConfigLoaded
+  end -- if ModConfigLoaded
 end -- OnMsg.ModConfigChanged
 
 

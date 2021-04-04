@@ -1,4 +1,20 @@
 # Automated Tourism
+## v2.1 04/03/2021 6:24:20 PM
+#### Changed
+- AT_3ModConfig.lua file to all local settings
+- g_WaitForModConfig to local WaitForModConfig
+- WaitForModConfig - Optimizations
+
+#### Fixed Issues
+- Other mods could potentially break all g_WaitForModConfig
+
+--------------------------------------------------------
+## v2.0 04/03/2021 3:23:26 PM
+
+#### Added
+-- GPL v3 License
+
+--------------------------------------------------------
 ## v1.11.1 04/01/2021 3:37:35 PM
 #### Changed
 - ATsetupVariables(rocket, init)
