@@ -3,7 +3,7 @@
 -- All rights reserved, terms of use is governed by license, see LICENSE file for details
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- Created May 1st, 2019
--- Updated April 3rd, 2021
+-- Updated Sept 18th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -170,7 +170,7 @@ end -- ATcountTouristsOnEarth()
 
 -- returns the number of tourists on Mars
 local function ATcountTouristsOnMars()
-  local colonists = (UICity and UICity.labels.Colonist) or ""
+  local colonists = (UIColony and UIColony.city_labels.labels.Colonist) or ""
   local findTrait = "Tourist"
   local count = 0
 
@@ -231,7 +231,7 @@ end -- ATflashStatus(rocket, status1, status2)
 -- calculate funding from tourism, return string
 -- added new celebrityFunds tourism
 local function ATcalcTourismDollars()
-  local tourismFunds = UICity and UICity.funding_gain_total.Tourist or 0
+  local tourismFunds = UIColony and UIColony.funds.funding_gain_total.Tourist or 0
   local totalFunds = 0
   local denom = ""
   if tourismFunds > 0 then
@@ -265,7 +265,7 @@ local function ATcalcTouristsInRange(rocket)
     local tested, suitable
     for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
       if not tested then
-        suitable = c.traits.Tourist and ATcheckDist(rocket.landing_site, dome, max_walk_dist)
+        suitable = c.traits.Tourist and ATcheckDist(rocket:GetMapID(), rocket.landing_site, dome, max_walk_dist)
       end -- if not tested
       if suitable then
         if not touristDomes[dome.name] then touristDomes[dome.name] = 0 end
@@ -319,7 +319,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.26"
+  local ATControlVer = "220"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end

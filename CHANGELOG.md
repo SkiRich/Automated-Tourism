@@ -1,4 +1,32 @@
 # Automated Tourism
+## [v2.2.0] 09/18/21 11:41:04 PM
+#### Changed
+- Picard version bump
+- replaced UICity with UIColony
+- replaced UICity.labels with UIColony.city_labels.labels.
+- function ResolvePos(realm, bld1, bld2) to include realm
+- altered code for ATCheckDist to include map_id in 1Init and Panels
+- added rocket:GetMapID() to all notifications
+- UIColony.funds.funding_gain_total.Tourist
+- varous code tweeks for map_ip and other picard specific code
+
+#### Added
+
+#### Removed
+- function SupplyRocket:OnModifiableValueChanged(prop, old_val, new_val) - now back in Picard
+
+#### Fixed Issues
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+- check max inbound tourist number.  bind to mod config.
+- check tourist rocket range, seems large.
+- check if we are only taking tourists in range, saw a tourist come across the map.
+
+--------------------------------------------------------
 ## v2.1 04/03/2021 6:24:20 PM
 #### Changed
 - AT_3ModConfig.lua file to all local settings
