@@ -57,7 +57,6 @@ function ATsetupVariables(rocket, init)
     rocket.AT_GenDepartRan         = false    -- var holds status of GenerateDepartures
     rocket.AT_RecallRadiusMode     = "Mod Config Set" -- mode for recall radius
     rocket.AT_oldDecal             = false    -- var that holds the old decal entitiy
-    if rocket.AT_eject_thread and IsValidThread(rocket.AT_eject_thread) then DeleteThread(rocket.AT_eject_thread) end -- stop ejecting colonists if in process
   else
     if rocket.AT_enabled then g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets - 1 end
     if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
@@ -117,6 +116,7 @@ local function ATfindReferences(objStartPt, objType, tId)
 end -- ATfindReferences()
 
 
+
 -- set the status of the button and show/hide status section
 function ATsetButtonStatus(ref, state)
   if type(ref) ~= "table" then return end -- short circuit if ref (self) is not built yet
@@ -152,6 +152,13 @@ function ATsetButtonStatus(ref, state)
   for item, section in pairs(tsections) do
     if section then section:SetVisible(state) end
   end -- for item
+  
+  -- move the buttons over a bit to fit the window when AT not enabled
+  if state then
+    InfopanelDlg.idMainButtons:SetMargins(box(-7, 5, 2, 10))
+  else
+    InfopanelDlg.idMainButtons:SetMargins(box(10, 5, 2, 10))
+  end -- if state
 
 end -- ATsetButtonStatus(rocket)
 

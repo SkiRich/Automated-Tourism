@@ -12,6 +12,7 @@
 - varous code tweeks for map_ip and other picard specific code
 - function ATcalcDepartureTime(rocket) - added check for express rocket
 - panels now uses local InfopanelDlg = Dialogs.Infopanel to find root
+- adjusted margins of idMainButtons in ATsetButtonStatus(rocket)
 
 #### Added
 - to SupplyRocket:GenerateDepartures(count_earthsick, count_tourists) - capacity check
