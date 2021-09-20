@@ -3,7 +3,7 @@
 -- All rights reserved, terms of use is governed by license, see LICENSE file for details
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- Created May 1st, 2019
--- Updated April 3rd, 2021
+-- Updated Sept 20th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -40,6 +40,7 @@ function ATsetupVariables(rocket, init)
     rocket.AT_departures           = rocket.AT_departures or (rocket.boarded and #rocket.boarded) or 0  -- number of tourists returning to earth, keep departures if cycling button on/off, count boarded
     rocket.AT_arriving_tourists    = 0        -- number of tourists picked up from earth
     rocket.AT_departuretime        = 0        -- gametime var for departure time
+    rocket.AT_express              = false    -- running an express rocket
     rocket.AT_have_departures      = false    -- bool var to signify we got departures onboard
     rocket.AT_leaving_colonists    = ((rocket.departures and #rocket.departures or 0)+(rocket.boarding and #rocket.boarding or 0)+(rocket.boarded and #rocket.boarded or 0))   -- var holds the colonists wanting to leave
     rocket.AT_boarded_colonists    = (rocket.boarded and #rocket.boarded) or 0       -- var holds the colonists that boarded
@@ -67,6 +68,7 @@ function ATsetupVariables(rocket, init)
     if rocket.AT_departures and (rocket.AT_departures < 1) then rocket.AT_departures = nil end -- if departures > 0 then keep departures if cycling on/off
     rocket.AT_arriving_tourists    = nil
     rocket.AT_departuretime        = nil
+    rocket.AT_express              = nil
     rocket.AT_have_departures      = nil
     rocket.AT_leaving_colonists    = nil      -- var holds the colonists wanting to leave
     rocket.AT_boarded_colonists    = nil      -- var holds the colonists that boarded
@@ -114,11 +116,13 @@ local function ATfindReferences(objStartPt, objType, tId)
 end -- ATfindReferences()
 
 
+
 -- set the status of the button and show/hide status section
 function ATsetButtonStatus(ref, state)
   if type(ref) ~= "table" then return end -- short circuit if ref (self) is not built yet
 
-  local InfopanelDlg = ref.parent.parent.parent.parent.parent
+  -- local InfopanelDlg = ref.parent.parent.parent.parent.parent
+  local InfopanelDlg = Dialogs.Infopanel
 
   local tsections = {
     serviceArea    = ATfindReferences(InfopanelDlg.idContent, "section", 994862568830), -- idContent[2]
@@ -148,6 +152,13 @@ function ATsetButtonStatus(ref, state)
   for item, section in pairs(tsections) do
     if section then section:SetVisible(state) end
   end -- for item
+  
+  -- move the buttons over a bit to fit the window when AT not enabled
+  if state then
+    InfopanelDlg.idMainButtons:SetMargins(box(-7, 5, 2, 10))
+  else
+    InfopanelDlg.idMainButtons:SetMargins(box(10, 5, 2, 10))
+  end -- if state
 
 end -- ATsetButtonStatus(rocket)
 
@@ -170,7 +181,7 @@ end -- ATcountTouristsOnEarth()
 
 -- returns the number of tourists on Mars
 local function ATcountTouristsOnMars()
-  local colonists = (UICity and UICity.labels.Colonist) or ""
+  local colonists = (UIColony and UIColony.city_labels.labels.Colonist) or ""
   local findTrait = "Tourist"
   local count = 0
 
@@ -199,6 +210,7 @@ local function ATUpdateStatusText(ui_status)
     checkdepart    = T{StringIdBase + 159, "Checking for departures"},
     warnleaving    = T{StringIdBase + 160, "Warning rocket leaving soon"},
     disembark      = T{StringIdBase + 161, "Colonists disembarking"},
+    express        = T{StringIdBase + 162, "-<- Overstay Express ->-"},
   }
   return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
@@ -231,7 +243,7 @@ end -- ATflashStatus(rocket, status1, status2)
 -- calculate funding from tourism, return string
 -- added new celebrityFunds tourism
 local function ATcalcTourismDollars()
-  local tourismFunds = UICity and UICity.funding_gain_total.Tourist or 0
+  local tourismFunds = UIColony and UIColony.funds.funding_gain_total.Tourist or 0
   local totalFunds = 0
   local denom = ""
   if tourismFunds > 0 then
@@ -265,7 +277,7 @@ local function ATcalcTouristsInRange(rocket)
     local tested, suitable
     for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
       if not tested then
-        suitable = c.traits.Tourist and ATcheckDist(rocket.landing_site, dome, max_walk_dist)
+        suitable = c.traits.Tourist and ATcheckDist(rocket:GetMapID(), rocket.landing_site, dome, max_walk_dist)
       end -- if not tested
       if suitable then
         if not touristDomes[dome.name] then touristDomes[dome.name] = 0 end
@@ -319,7 +331,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "v1.26"
+  local ATControlVer = "220.1"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -370,7 +382,8 @@ function OnMsg.ClassesBuilt()
       "UniqueID", ATButtonID1,
       "Id", "idATbutton",
       "__context_of_kind", "SupplyRocket",
-      "__condition", function (parent, context) return g_AT_modEnabled and context.can_fly_colonists and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+      "__condition", function (parent, context) return g_AT_modEnabled and context.can_fly_colonists and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod",
+                                                                                                           "RefugeeRocket", "ForeignAidRocket", "RocketBuildingBase")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"}, -- Title Used for sections only
