@@ -3,13 +3,13 @@
 -- All rights reserved, terms of use is governed by license, see LICENSE file for details
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- Created May 1st, 2019
--- Updated April 3rd, 2021
+-- Updated Sept 19th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
                        -- Use if lf_print then print("something") end
 
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 79
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 50-99:  Next is 81
 local steam_id = "1736068322"
 local mod_name = "Automated Tourism"
 local ModDir = CurrentModPath
@@ -21,6 +21,7 @@ local TableFind  = table.find
 local ModConfig_id        = "1542863522"
 local ModConfigWaitThread = false
 local ModConfigLoaded     = TableFind(ModsLoaded, "steam_id", ModConfig_id) or false
+
 
 
 -- wait for mod config to load or fail out and use defaults
@@ -58,6 +59,7 @@ local function WaitForModConfig()
         options.ATvoyageWaitTime  = ModConfig:Get("Automated_Tourism", "ATvoyageWaitTime")
         options.ATrecallRadius    = ModConfig:Get("Automated_Tourism", "ATrecallRadius")
         options.ATearlyDepartures = ModConfig:Get("Automated_Tourism", "ATearlyDepartures")
+        options.ATexpressOverstay = ModConfig:Get("Automated_Tourism", "ATexpressOverstay")
         options.ATstripSpecialty  = ModConfig:Get("Automated_Tourism", "ATstripSpecialty")
         options.ATpreventDepart   = ModConfig:Get("Automated_Tourism", "ATpreventDepart")
         options.ATfoodPerTourist  = ModConfig:Get("Automated_Tourism", "ATfoodPerTourist")
@@ -211,6 +213,15 @@ function OnMsg.ModConfigReady()
         default = true,
         order = 7
     })
+    
+    -- ATexpressOverstay
+    ModConfig:RegisterOption("Automated_Tourism", "ATexpressOverstay", {
+        name = T{StringIdBase + 79, "Allow express boarding:"},
+        desc = T{StringIdBase + 80, "Board and depart no more than 24 hours after touchdown on Mars if there are overstayed tourists in the rockets range."},
+        type = "boolean",
+        default = true,
+        order = 8
+    })
 
     -- g_AT_Options.ATstripSpecialty
     ModConfig:RegisterOption("Automated_Tourism", "ATstripSpecialty", {
@@ -218,7 +229,7 @@ function OnMsg.ModConfigReady()
         desc = T{StringIdBase + 67, "Remove any specialities for arriving tourists since they dont work anyway."},
         type = "boolean",
         default = true,
-        order = 8
+        order = 9
     })
 
     -- g_AT_Options.ATpreventDepart
@@ -227,7 +238,7 @@ function OnMsg.ModConfigReady()
         desc = T{StringIdBase + 69, "Prevents tourists from leaving Mars on non tourist rockets when at least one Tourist Rocket is running."},
         type = "boolean",
         default = true,
-        order = 9
+        order = 10
     })
 
     -- g_AT_Options.ATfoodPerTourist
@@ -239,7 +250,7 @@ function OnMsg.ModConfigReady()
         min = 0,
         max = 5,
         step = 1,
-        order = 10
+        order = 11
     })
 
     -- g_AT_Options.ATreplaceLogo
@@ -248,7 +259,7 @@ function OnMsg.ModConfigReady()
         desc = T{StringIdBase + 78, "Use Mars Touring Company Logo on all the rockets that are set as Automatic Tourism Rockets."},
         type = "boolean",
         default = true,
-        order = 11
+        order = 12
     })
 
 end -- ModConfigReady
@@ -330,6 +341,11 @@ function OnMsg.ModConfigChanged(mod_id, option_id, value, old_value, token)
     if option_id == "ATearlyDepartures" then
       g_AT_Options.ATearlyDepartures = value -- allow early departures
     end -- ATearlyDepartures
+    
+    -- ATexpressOverstay
+    if option_id == "ATexpressOverstay" then
+      g_AT_Options.ATexpressOverstay = value -- allow express boarding
+    end -- ATexpressOverstay  
 
     -- g_AT_Options.ATstripSpecialty
     if option_id == "ATstripSpecialty" then

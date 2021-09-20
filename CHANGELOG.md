@@ -1,4 +1,42 @@
 # Automated Tourism
+## [v2.2.0] 09/20/21 11:41:04 PM
+#### Changed
+- Picard version bump
+- changed fixup code ver
+- replaced UICity with UIColony
+- replaced UICity.labels with UIColony.city_labels.labels.
+- function ResolvePos(realm, bld1, bld2) to include realm
+- altered code for ATCheckDist to include map_id in 1Init and Panels
+- added rocket:GetMapID() to all notifications
+- UIColony.funds.funding_gain_total.Tourist
+- varous code tweeks for map_ip and other picard specific code
+- function ATcalcDepartureTime(rocket) - added check for express rocket
+- panels now uses local InfopanelDlg = Dialogs.Infopanel to find root
+- adjusted margins of idMainButtons in ATsetButtonStatus(rocket)
+
+#### Added
+- to SupplyRocket:GenerateDepartures(count_earthsick, count_tourists) - capacity check
+- valid check for rocket in function OnMsg.RocketLanded(rocket)
+- g_AT_Options.ATexpressOverstay - variable to check if we should run express routes to evacuate overstays
+- mod config options for ATexpressOverstay
+- local function ATcheckForExpressOverStay(rocket)
+- rocket.AT_express = false to rocket variables
+- added checks for additional rocket classes
+
+#### Removed
+- rewrite - function SupplyRocket:OnModifiableValueChanged(prop, old_val, new_val) - now back in Picard
+
+#### Fixed Issues
+- Picard update
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+
+
+--------------------------------------------------------
 ## v2.1 04/03/2021 6:24:20 PM
 #### Changed
 - AT_3ModConfig.lua file to all local settings

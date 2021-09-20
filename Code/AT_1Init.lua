@@ -5,7 +5,7 @@
 -- Created May 1st, 2019
 -- Hotfix Jan 25th, 2020
 -- Tourism patch fixes March 15th 2021
--- Update April 3rd, 2021
+-- Update Sept 20th, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -29,6 +29,7 @@ g_AT_Options = {
   ATvoyageWaitTime    = 5,         -- Wait this amount of sols between voyages
   ATrecallRadius      = true,      -- display recall radius on landed rocket
   ATearlyDepartures   = true,      -- allow for earlier departures when voyages waiting
+  ATexpressOverstay   = true,      -- allow for early departure of there are nearby overstaying tourists
   ATstripSpecialty    = true,      -- strip a tourists specialty upon arrival
   ATpreventDepart     = true,      -- prevents colonists from using non AT rockets to depart
   ATmax_walk_dist     = 2,         -- x const.ColonistMaxDomeWalkDist for calcs in recall and boundary
@@ -37,7 +38,7 @@ g_AT_Options = {
 } -- g_AT_Options
 
 -- Save game fixup variables
-g_AT_fixupVer = "v1.1"
+g_AT_fixupVer = "220"
 GlobalVar("g_AT_currentFixupVer", "0")
 
 g_AT_NumOfTouristRockets = 0       -- keeps track of the number of tourist rockets
@@ -58,10 +59,10 @@ local ModDir   = CurrentModPath
 local mod_name = "Automated Tourism"
 local iconATnoticeIcon = ModDir.."UI/Icons/ATNoticeIcon.png"
 
--- count the numbere of AT rockets in play
+-- count the number of AT rockets in play
 local function ATcountATrockets()
   local ATcount = 0
-  local rockets = UICity and UICity.labels.SupplyRocket or empty_table  -- current for Tourism patch
+  local rockets = UIColony and UIColony.city_labels.labels.SupplyRocket or empty_table  -- current for Picard
   for i = 1, #rockets do
     if rockets[i].AT_enabled then ATcount = ATcount + 1 end
   end -- for i
@@ -79,6 +80,30 @@ function ATConvertDateTime(currentTime)
 end -- ATConvertDateTime()
 
 
+
+-- checks to see if there are tourists that have overstayed in range of the rocket
+local function ATcheckForExpressOverStay(rocket)
+  local domes = rocket.city.labels.Dome or empty_table
+  local map = rocket:GetMapID() or MainMapID
+  local overstayedTourists = g_OverstayingTourists[map] or empty_table
+  local max_walk_dist = g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist
+  local count = 0
+  
+  for i = 1, #domes do
+    local dome = domes[i]
+    local suitable    
+    for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
+        if c:CanChangeCommand() and (c.traits.Tourist and c.sols > g_Consts.TouristSolsOnMarsMin) then
+          suitable = ATcheckDist(c:GetMapID(), rocket, dome, max_walk_dist)
+          if suitable then count = count + 1 end
+        end -- if c:CanChangeCommand
+    end -- for _, c
+  end -- for i
+  if count > 0 then return true end
+  return false
+end -- ATcheckForExpressOverStay(rocket)
+
+
 -- calculate departure time
 local function ATcalcDepartureTime(rocket)
 
@@ -88,13 +113,17 @@ local function ATcalcDepartureTime(rocket)
     rocket.AT_departuretime = rocket.AT_last_arrival_time + const.HourDuration + (5 * const.DayDuration) -- wait 5 days and 1 hour to depart if no immediate departures
     rocket.AT_have_departures = false
     -- check for early departures if voyages exist
-    if g_AT_Options.ATearlyDepartures and rocket.AT_next_voyage_time and (rocket.AT_next_voyage_time <= rocket.AT_departuretime) then
+    if g_AT_Options.ATexpressOverstay and ATcheckForExpressOverStay(rocket) then
+      if lf_print then print("Express Overstay rocket running: ", rocket.name) end
+      rocket.AT_departuretime = GameTime() + (6 * const.HourDuration)
+      rocket.AT_express = true
+    elseif g_AT_Options.ATearlyDepartures and rocket.AT_next_voyage_time and (rocket.AT_next_voyage_time <= rocket.AT_departuretime) then
       if rocket.AT_next_voyage_time <= GameTime() then
         rocket.AT_departuretime = GameTime() + (12 * const.HourDuration)
       else
         rocket.AT_departuretime = rocket.AT_next_voyage_time
       end -- if rocket.AT_next_voyage_time
-    end -- if g_AT_Options.ATearlyDepartures
+    end -- if g_AT_Options.ATexpressOverstay
   else
     if lf_print then print("Departures boarding on rocket: ", rocket.name) end
     -- if we have departures then reset last arrival time to now so we can recalculate departure time properly
@@ -143,7 +172,7 @@ local function ATfixupSaves()
 
     -- fix for stuck rockets waiting to unload cargo
     -- do this once and never again since its fixed going forward in templates
-    local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+    local rockets = UIColony and UIColony.city_labels.labels.SupplyRocket or empty_table
     for i = 1, #rockets do
       if rockets[i].AT_enabled then
         if (rockets[i].status == "launch suspended") and (rockets[i]:GetStoredAmount() > 0) then
@@ -158,7 +187,7 @@ local function ATfixupSaves()
 end -- ATfixupSave()
 
 -- copied from dome.lua  its a local function - Boo-Hiss
-local ResolvePos = function(bld1, bld2)
+local function ResolvePos(realm, bld1, bld2)
   local pos
   local invalid_pos = InvalidPos()
   if IsPoint(bld1) then
@@ -175,19 +204,20 @@ local ResolvePos = function(bld1, bld2)
       pos = pos or bld1:GetPos()
     end
   end
-  return pos and invalid_pos ~= pos and GetPassablePointNearby(pos)
-end
+  return pos and invalid_pos ~= pos and realm:GetPassablePointNearby(pos)
+end -- function ResolvePos(realm, bld1, bld2)
 
 -- rewrite of CheckDist which is in dome.lua but is a local ... boo-hiss
 -- called in panels so is global now
-function ATcheckDist(bld1, bld2, distance)
+function ATcheckDist(map_id, bld1, bld2, distance)
   -- local CheckDist = function(bld1, bld2)
   -- from _GameConst.lua
   -- these changed since curiosity patch
   -- const.ColonistMaxDepartureRocketDist = 1200 * guim --when leaving, a rocket cant be used if placed beyond that distance from the dome
   -- const.ColonistMaxDomeWalkDist = 400 * guim -- distance between two domes to consider them in walk range
 
-  local p1, p2 = ResolvePos(bld1, bld2), ResolvePos(bld2, bld1)
+  local realm = GetRealmByID(map_id)
+  local p1, p2 = ResolvePos(realm, bld1, bld2), ResolvePos(realm, bld2, bld1)
   if not p1 or not p2 then
     if lf_printdistance then print("--- Distance not resolved sending false") end
     return false, max_int
@@ -201,7 +231,7 @@ function ATcheckDist(bld1, bld2, distance)
     if lf_printdistance then print("--- Distance too far, sending false") end
     return false, len_sl, true
   end
-  local has_path, len = PathLenCached(p1, Colonist.pfclass, p2)
+  local has_path, len = PathLenCached(map_id, p1, Colonist.pfclass, p2)
   if has_path and len > distance then
     if lf_printdistance then print("--- Distance OK but no path to destination, sending false") end
     has_path = false
@@ -212,17 +242,19 @@ function ATcheckDist(bld1, bld2, distance)
 end -- ATcheckDist(bld1, bld2)
 
 
--- start all the departure threads if possible oin SupplyRockets only
+-- start all the departure threads if possible on SupplyRockets only
 -- made global - used in all files
 function ATStartDepartureThreads()
   -- start the departure threads only if there are no more AT rockets
   -- only for landed supply rockets
   if (g_AT_NumOfTouristRockets < 1) or (not g_AT_Options.ATpreventDepart) then
-    local rockets = UICity and UICity.labels.SupplyRocket or empty_table
+    local rockets = UIColony and UIColony.city_labels.labels.SupplyRocket or empty_table
     for i = 1, #rockets do
       if rockets[i]:IsRocketOnMars() and rockets[i].can_fly_colonists and (not rockets[i].AT_enabled) and
-      (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod"))
-      then rockets[i]:StartDepartureThread() end
+      (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod", 
+                                       "RefugeeRocket", "ForeignAidRocket", "RocketBuildingBase")) then
+        rockets[i]:StartDepartureThread() 
+      end -- if rockets
     end -- for i
   end -- if g_AT_NumOfTouristRockets
 end -- function ATStartDepartureThreads()
@@ -242,7 +274,7 @@ function ATStopDepartureThreads(rocket)
   -- dont kill if g_AT_Options.ATpreventDepart is false
   -- only for landed supply rockets
   if g_AT_Options.ATpreventDepart then
-    rockets = UICity and UICity.labels.SupplyRocket or empty_table
+    rockets = UIColony and UIColony.city_labels.labels.SupplyRocket or empty_table
     for i = 1, #rockets do
       if rockets[i]:IsRocketOnMars() then
         rockets[i]:StopDepartureThread()
@@ -253,7 +285,7 @@ function ATStopDepartureThreads(rocket)
 
   -- check all landed trade rockets for thread and kill - what where they thinking letting these have departure threads
   -- only for landed trade rockets
-  rockets = UICity and UICity.labels.TradeRocket or empty_table
+  rockets = UIColony and UIColony.city_labels.labels.TradeRocket or empty_table
   for i = 1, #rockets do
     if rockets[i]:IsRocketOnMars() then
       rockets[i]:StopDepartureThread()
@@ -263,7 +295,7 @@ function ATStopDepartureThreads(rocket)
 
   -- check all landed foreign trade rockets for thread and kill - what where they thinking letting these have departure threads
   -- only for landed trade rockets
-  rockets = UICity and UICity.labels.ForeignTradeRocket or empty_table
+  rockets = UIColony and UIColony.city_labels.labels.ForeignTradeRocket or empty_table
   for i = 1, #rockets do
     if rockets[i]:IsRocketOnMars() then
       rockets[i]:StopDepartureThread()
@@ -275,7 +307,8 @@ end -- function ATStopDepartureThreads(rocket)
 
 
 -- function to eject any colonists that have boarded a rocket to return to earth
-local function ATejectColonists(rocket)
+-- global used panels
+function ATejectColonists(rocket)
   if rocket.boarded and #rocket.boarded > 0 then
     local tEjectedColonists = {}
     -- setup new table and remove some of the unecessary fields to generate colonist table
@@ -317,7 +350,7 @@ local function ATejectColonists(rocket)
             applicant.emigration_dome = dome
             applicant.city = dome and dome.city or city
             applicant.arriving = rocket
-            local colonist = Colonist:new(applicant)
+            local colonist = Colonist:new(applicant, rocket:GetMapID())
 
             -- put back the time they were on mars
             if colonist.oldSols then
@@ -327,7 +360,7 @@ local function ATejectColonists(rocket)
             -- if the time is an overstay put them back in the overstay group
             -- no need to modify their satifaction, its already accounted for
            if colonist.traits.Tourist and colonist.sols >= g_Consts.TouristSolsOnMarsMax then
-             g_OverstayingTourists[#g_OverstayingTourists + 1] = colonist
+             RequestNewObjsNotif(g_OverstayingTourists, colonist, colonist:GetMapID(), false)
              if HintsEnabled then
                HintTrigger("HintOverstayingTourists")
              end
@@ -347,16 +380,16 @@ local function ATejectColonists(rocket)
         end -- while
 
         if num_colonists > 0 then
-          AddOnScreenNotification("NewColonists", nil, {count = num_colonists}, {rocket})
+          AddOnScreenNotification("NewColonists", nil, {count = num_colonists}, {rocket}, rocket:GetMapID())
         end -- if num_colonists
         if num_tourists > 0 then
-          AddOnScreenNotification("NewTourists", nil, {count = num_tourists}, {rocket})
+          AddOnScreenNotification("NewTourists", nil, {count = num_tourists}, {rocket}, rocket:GetMapID())
         end -- if num_tourists
         if rocket.disembarking_confused then
-          AddOnScreenNotification("ConfusedColonists", nil, {}, {rocket:GetPos()})
+          AddOnScreenNotification("ConfusedColonists", nil, {}, {rocket:GetPos()}, rocket:GetMapID())
         end -- if self.disembarking_confuse
 
-        Msg("ColonistsLanded")
+        Msg("ColonistsLanded", rocket:GetMapID())
 
         rocket.disembarking = nil
         rocket.boarded = nil
@@ -412,7 +445,7 @@ function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
   -- reset all rockets if they have an old entity
   if rocket or reset or applyAll then resetAll = false end -- just in case
   if resetAll then
-    local rockets = UICity.labels.SupplyRocket or empty_table
+    local rockets = UIColony.city_labels.labels.SupplyRocket or empty_table
     for i = 1, #rockets do
       logo = rockets[i]:GetAttach("Logo")
       -- reset the attaches, if they are missing
@@ -422,7 +455,8 @@ function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
         AutoAttachObjects(rockets[i])
         logo = rockets[i]:GetAttach("Logo")
       end -- if not logo
-      if rockets[i].AT_oldDecal and (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) then
+      if rockets[i].AT_oldDecal and (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod",
+                                                                     "RefugeeRocket", "ForeignAidRocket", "RocketBuildingBase")) then
         logo:ChangeEntity(rockets[i].AT_oldDecal)
         rockets[i].AT_oldDecal = false
       end -- if rockets[i]
@@ -432,7 +466,7 @@ function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
   -- apply to all rockets if mod enabled and rocket is an AT rocket
   if rocket or reset or resetAll then applyAll = false end -- just in case
   if applyAll and g_AT_modEnabled and g_AT_Options.ATreplaceLogo then
-    local rockets = UICity.labels.SupplyRocket or empty_table
+    local rockets = UIColony.city_labels.labels.SupplyRocket or empty_table
     for i = 1, #rockets do
       logo = rockets[i]:GetAttach("Logo")
       -- reset the attaches, if they are missing
@@ -444,7 +478,8 @@ function ATreplaceRocketLogo(rocket, reset, resetAll, applyAll)
         rockets[i].AT_oldDecal = false  -- allow for overwrite since attach busted
       end -- if not logo
       -- dont overwrite old decal
-      if rockets[i].AT_enabled and (not rockets[i].AT_oldDecal) and (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) then
+      if rockets[i].AT_enabled and (not rockets[i].AT_oldDecal) and (not IsKindOfClasses(rockets[i], "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod",
+                                                                                                     "RefugeeRocket", "ForeignAidRocket", "RocketBuildingBase")) then
         rockets[i].AT_oldDecal = logo:GetEntity() -- save the old logo
         logo:ChangeEntity("AutomatedTourismLogo")
       end -- if rockets[i].AT_enabled
@@ -517,7 +552,7 @@ function OnMsg.RocketLaunched(rocket)
 
     -- notification of rocket launch
     local msg = T{StringIdBase + 2, "Departures: <count>", count = rocket.AT_departures}
-    AddCustomOnScreenNotification("AT_Notice_Leaving", T{StringIdBase + 1, "Tourist Rocket Leaving"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime})
+    AddCustomOnScreenNotification("AT_Notice_Leaving", T{StringIdBase + 1, "Tourist Rocket Leaving"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime}, rocket:GetMapID())
     PlayFX("UINotificationResearchComplete", rocket)
 
     -- determing status
@@ -541,7 +576,7 @@ function OnMsg.RocketLanded(rocket)
   if g_AT_modEnabled and rocket.AT_enabled then
     if lf_print then print("Tourist Rocket Landed On Mars: ", rocket.name) end
     rocket.AT_status = "landed"
-    rocket.AT_GenDepartRan = false
+    rocket.AT_GenDepartRan = false 
 
     -- Check AT_RecallRadiusMode first
     -- setup rocket recall tourist boundary
@@ -555,7 +590,7 @@ function OnMsg.RocketLanded(rocket)
 
     -- notification of rocket landed
     local msg = T{StringIdBase + 4, "Arrivals: <count>", count = rocket.AT_arriving_tourists}
-    AddCustomOnScreenNotification("AT_Notice_Landed", T{StringIdBase + 3, "Tourist Rocket Landed"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime})
+    AddCustomOnScreenNotification("AT_Notice_Landed", T{StringIdBase + 3, "Tourist Rocket Landed"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime}, rocket:GetMapID())
     PlayFX("UINotificationResearchComplete", rocket)
 
     -- if a thread is already running then delete it (should never happen)
@@ -565,7 +600,7 @@ function OnMsg.RocketLanded(rocket)
       if rocket.auto_export then rocket:ToggleAutoExport() end -- turn off auto launch sequence
       rocket:AttachSign(true, "SignTradeRocket")
 
-       -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it here
+       -- GenerateDepartures() is called automatically upon landing a rocket so we dont need to call it here -- still true in Picard
        -- it is called in the refuel code
        -- I rewrote the start thread function to make it not use departure threads and instead just execute once
 
@@ -578,7 +613,11 @@ function OnMsg.RocketLanded(rocket)
       while IsValid(rocket) and (rocket.AT_enabled) and (not rocket.AT_GenDepartRan) do
         Sleep(100) -- wait a moment to check if GenerateDepartures finished
       end -- while rocket.AT_GenDepartRan
-      rocket.AT_GenDepartRan = false
+      
+      -- this is a double check to make sure user did not demolish rocket while in loop above
+      if not IsValid(rocket) then return end -- short circuit
+      
+      rocket.AT_GenDepartRan = false  -- reset the variable
       rocket:StopDepartureThread() -- New for tourism patch, added here in case the existing rocket is running it, should not be
 
       -- check if we still got arriving passengers
@@ -595,6 +634,7 @@ function OnMsg.RocketLanded(rocket)
       rocket.AT_status = "landed"
       rocket.AT_last_arrival_time = GameTime() -- set the arrival time when rocket touches down, used to calc next departure
 
+
       if lf_print then
         print(string.format("%s departures on %s", rocket.AT_leaving_colonists, rocket.name))
         print("Calculating departure time: ", rocket.name)
@@ -606,10 +646,12 @@ function OnMsg.RocketLanded(rocket)
       if not rocket.AT_have_departures then
         -- if not departures
         if lf_print then print(string.format("Rocket %s waiting until %s - No current departures", rocket.name, rocket.AT_departuretimeText)) end
-        rocket.AT_status = "waitdepart"
+        if rocket.AT_express then ATflashStatus(rocket, "express", "waitdepart", true)
+                             else rocket.AT_status = "waitdepart" end
         while IsValid(rocket) and rocket.AT_enabled and (GameTime() < rocket.AT_departuretime) do
           Sleep(5000) -- sleep 5 seconds at a time
         end -- while GameTime
+        rocket.AT_express = false
         -- call tourists to rocket
         ATflashStatus(rocket, "checkdepart", "waitdepart", true)
         rocket.departures = nil -- nil out departures to have GenerateDepartures execute
@@ -619,6 +661,10 @@ function OnMsg.RocketLanded(rocket)
         while IsValid(rocket) and rocket.AT_enabled and (not rocket.AT_GenDepartRan) do
           Sleep(500)
         end -- while rocket.AT_GenDepartRan
+        
+        -- this is a double check to make sure user did not demolish rocket while in loop above
+        if not IsValid(rocket) then return end -- short circuit
+        
         rocket.AT_GenDepartRan = false
 
         if lf_print then
@@ -667,7 +713,7 @@ function OnMsg.RocketLaunchFromEarth(rocket)
       if lf_print and rocket.AT_enabled then print("Last tourist rocket older than 5 days, picking up new tourists: ", rocket.name) end
 
       -- gather new tourists
-      local capacity = Min(g_Consts.MaxColonistsPerRocket, g_AT_Options.ATMaxTourists) -- set capacity to the smaller of current allowed passengers or 20
+      local capacity = Min(g_Consts.MaxColonistsPerRocket, g_AT_Options.ATMaxTourists) -- set capacity to the smaller of current allowed passengers
       local applicantPool = g_ApplicantPool or empty_table
       local findTrait = "Tourist"
       local count = 0
@@ -738,7 +784,7 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 
     -- notification of rocket leaving earth
     local msg = T{StringIdBase + 6, "On Board: <count>", count = rocket.AT_arriving_tourists}
-    AddCustomOnScreenNotification("AT_Notice_Voyage", T{StringIdBase + 5, "Tourist Rocket En Route"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime})
+    AddCustomOnScreenNotification("AT_Notice_Voyage", T{StringIdBase + 5, "Tourist Rocket En Route"}, msg, iconATnoticeIcon, nil, {cycle_objs = {rocket}, expiration = g_AT_Options.ATnoticeDismissTime}, MainMapID)
     PlayFX("UINotificationResearchComplete", rocket)
 
   else
@@ -748,19 +794,6 @@ function OnMsg.RocketLaunchFromEarth(rocket)
 
 end -- OnMsg.RocketLaunchFromEarth(rocket)
 
-
------------------------------------------------------ ClassesBuilt () ------------------------------------------------------------
-function OnMsg.ClassesBuilt()
-
-
-  -- god damn it they forgot another function - fuckers
-  -- not a local
-  function SupplyRocket:OnModifiableValueChanged(prop, old_val, new_val)
-    return RocketBase.OnModifiableValueChanged(self, prop, old_val, new_val)
-  end -- function SupplyRocket:OnModifiableValueChanged
-
-
-end -- OnMsg.ClassesBuilt()
 
 
 ------------------------------------------------------ ClassesGenerate() ----------------------------------------
@@ -832,7 +865,7 @@ function OnMsg.ClassesGenerate()
   function DroneControl:OnSelected()
     -- short circuit if not a Tourist Rocket or if mod is disabled
     if g_AT_modEnabled and self.AT_enabled then
-      local colonists = UICity.labels.Colonist or empty_table
+      local colonists = UIColony.city_labels.labels.Colonist or empty_table
       local tourists = {}
       for i = 1, #colonists do
         if colonists[i].traits.Tourist then tourists[#tourists+1] = colonists[i] end
@@ -840,13 +873,14 @@ function OnMsg.ClassesGenerate()
       if #tourists > 0 then SelectionArrowAdd(tourists) end
     end -- if g_AT_modEnabled
 
-    Old_DroneControl_OnSelected(self)
+    return Old_DroneControl_OnSelected(self)
   end -- DroneControl:OnSelected()
 
 
   -- fix for broken source code
   -- local Old_SupplyRocket_UIOpenTouristOverview = SupplyRocket.UIOpenTouristOverview -- not needed since old one is broke dick
-  function SupplyRocket:UIOpenTouristOverview(reward_info)
+  function SupplyRocket:UIOpenTouristOverview()
+    local reward_info
     local tourists = {}
     local boarded = self.boarded or empty_table
     for i = 1, #boarded do
@@ -870,7 +904,7 @@ function OnMsg.ClassesGenerate()
     local rocket = self
     -- short circuit of mod disabled
     if g_AT_modEnabled then
-      if not IsKindOfClasses(rocket, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod") then
+      if not IsKindOfClasses(rocket, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod", "RefugeeRocket", "ForeignAidRocket", "RocketBuildingBase") then
         ATsetupVariables(rocket, false) -- clear all AT vars
       end --if not IsKindOfClasses
       rocket:StopDepartureThread() -- prevent memory leak.
@@ -917,10 +951,20 @@ function OnMsg.ClassesGenerate()
   -- taken from colonist.lua
   local Old_Colonist_LeavingMars = Colonist.LeavingMars
   function Colonist:LeavingMars(rocket)
+    -- simple way to reuse commands in a function
+    local function CleanupLeavingColonist(colonist, rocket)
+        SelectionRemove(colonist)
+        DiscardNewObjsNotif(g_OverstayingTourists, colonist, colonist:GetMapID() or MainMapID)
+        RebuildInfopanel(colonist)
+        Msg("ColonistLeavingMars", colonist, rocket)
+        DoneObject(colonist)
+    end -- local function CleanupLeavingColonist
+
     -- short circuit if not a tourist rocket
     if g_AT_modEnabled and rocket.AT_enabled then
       self.leaving = true
       self:SetDome(false)
+      self:ClearDetrimentalStatusEffects()
       self:ClearTransportRequest()
       table.insert(rocket.departures, self)
 
@@ -938,10 +982,10 @@ function OnMsg.ClassesGenerate()
         rocket.AT_leaving_colonists = ((rocket.departures and #rocket.departures or 0)+(rocket.boarding and #rocket.boarding or 0)+(rocket.boarded and #rocket.boarded or 0))
         if self.traits.Tourist then
           table.insert(rocket.boarded, self)
-          table.remove_entry(g_OverstayingTourists, self)
-          DoneObject(self)
-          Msg("ColonistLeavingMars", self, rocket)
+          DiscardNewObjsNotif(g_OverstayingTourists, self, self:GetMapID() or MainMapID)
         end -- if self.traits.Tourist
+        Msg("ColonistLeavingMars", self, rocket)
+        DoneObject(self)
         return
       end -- self:GotoBuildingSpot
 
@@ -959,10 +1003,7 @@ function OnMsg.ClassesGenerate()
         table.remove_entry(rocket.boarding, self)
         table.insert(rocket.boarded, self)
 
-        SelectionRemove(self) --deselect this colonist (mantis:0130871)
-        table.remove_entry(g_OverstayingTourists, self)
-
-        DoneObject(self)
+        CleanupLeavingColonist(self, rocket)
 
         -- colonist has boarded rocket
         -- the 'if' is just in case user toggled the AT rocket while colonist was walking to rocket, will throw errors otherwise
@@ -974,14 +1015,11 @@ function OnMsg.ClassesGenerate()
           -- rocket.AT_departures = rocket.AT_boarded_colonists --legacy pre tourist patch code - leave it
         end -- if rocket.AT_enabled
 
-        --msg ColonistLeavingMars, colonist, rocket - fired when any colonist is leaving Mars
-        Msg("ColonistLeavingMars", self, rocket)
-        RebuildInfopanel(self)
       end) -- self:PushDestructor
       self:PopAndCallDestructor()
     else
       -- call original code
-      Old_Colonist_LeavingMars(self, rocket)
+      return Old_Colonist_LeavingMars(self, rocket)
     end -- if rocket.AT_enabled
   end -- Colonist:LeavingMars(rocket)
 
@@ -1014,7 +1052,7 @@ function OnMsg.ClassesGenerate()
     if not g_AT_modEnabled then return Old_RocketBase_StartDepartureThread(self) end -- short circuit
 
     -- add code to exclude foreign trade rockets and trade rockets
-    if IsKindOfClasses(self, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")
+    if IsKindOfClasses(self, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod", "RefugeeRocket", "ForeignAidRocket", "RocketBuildingBase")
     then return end -- short circuit for invalid rocket types
 
     if (not self.AT_enabled) and ((not g_AT_Options.ATpreventDepart) or (g_AT_NumOfTouristRockets < 1)) then
@@ -1064,10 +1102,11 @@ function OnMsg.ClassesGenerate()
         self.boarded = {}
       end -- if not self
 
+      local capacity = Min(g_Consts.MaxColonistsPerRocket, g_AT_Options.ATMaxTourists)  -- passenger capacity
       local domes = self.city.labels.Dome or empty_table
       local earthsick = {} -- new for tourist patch
       local tourists = {}  -- new for tourist patch
-      local list = {}
+      local list = {}      -- total list of onboard passangers
       local max_walk_dist = g_AT_Options.ATmax_walk_dist * const.ColonistMaxDomeWalkDist
       if lf_print then print("- Checking for suitable colonists to leave") end
       for i = 1, #domes do
@@ -1077,9 +1116,10 @@ function OnMsg.ClassesGenerate()
         for _, c in ipairs(IsValid(dome) and dome.labels.Colonist or empty_table) do
           if c:CanChangeCommand() and (count_earthsick and c.status_effects.StatusEffect_Earthsick or (count_tourists and c.traits.Tourist and c.sols > g_Consts.TouristSolsOnMarsMin)) then
             if lf_print then print("- Tourist/Earthsick passed Check now testing distance") end
-            suitable = ATcheckDist(self, dome, max_walk_dist)
+            suitable = ATcheckDist(self:GetMapID() or MainMapID, self, dome, max_walk_dist)
             if lf_print then print("- CP1 reached") end
-            if suitable then
+            -- if can reach rocket and rocket has space
+            if suitable and #list < capacity then
               if lf_print then print("- CP2 Suitable reached") end
               list[#list + 1] = c
               if c.traits.Tourist then
@@ -1088,8 +1128,10 @@ function OnMsg.ClassesGenerate()
                 earthsick[#earthsick + 1] = c
               end -- if c.traits.Tourist
               c:SetCommand("LeavingMars", self)
-            else
+            elseif not suitable then
               if lf_print then print("- Tourist/Earthsick FAILED testing distance") end
+            elseif #list < capacity then
+              if lf_print then print("- Rocket Capacity reached - No more passengers accepted") end
             end -- if suitable
           end -- if c:CanChangeCommand
         end -- for _
@@ -1098,10 +1140,10 @@ function OnMsg.ClassesGenerate()
       if #list > 0 then
         self.AT_leaving_colonists = #list -- set the expected colonists that are leaving on tourism rocket
         if count_earthsick and #earthsick > 0 then
-          AddOnScreenNotification("LeavingMars", false, {colonists_count = #earthsick}, earthsick)
+          AddOnScreenNotification("LeavingMars", false, {colonists_count = #earthsick}, earthsick, self:GetMapID())
         end -- if count_earthsick
         if count_tourists and #tourists > 0 then
-          AddOnScreenNotification("LeavingMarsTourists", false, {tourists_count = #tourists}, tourists)
+          AddOnScreenNotification("LeavingMarsTourists", false, {tourists_count = #tourists}, tourists, self:GetMapID())
           PlayFX("UINotificationResearchComplete") -- add some noise, jeez the devs couldnt be bothered for some soundfx here.
         end -- if count_tourists
         --AddOnScreenNotification("LeavingMars", false, {colonists_count = #list}, list)
