@@ -3,7 +3,7 @@
 -- All rights reserved, terms of use is governed by license, see LICENSE file for details
 -- If you are an Aboslute Games developer looking at this, just go away.  You suck at development.
 -- Created May 1st, 2019
--- Updated Sept 18th, 2021
+-- Updated Sept 20th, 2021
 
 
 local lf_print = false -- Setup debug printing in local file
@@ -40,6 +40,7 @@ function ATsetupVariables(rocket, init)
     rocket.AT_departures           = rocket.AT_departures or (rocket.boarded and #rocket.boarded) or 0  -- number of tourists returning to earth, keep departures if cycling button on/off, count boarded
     rocket.AT_arriving_tourists    = 0        -- number of tourists picked up from earth
     rocket.AT_departuretime        = 0        -- gametime var for departure time
+    rocket.AT_express              = false    -- running an express rocket
     rocket.AT_have_departures      = false    -- bool var to signify we got departures onboard
     rocket.AT_leaving_colonists    = ((rocket.departures and #rocket.departures or 0)+(rocket.boarding and #rocket.boarding or 0)+(rocket.boarded and #rocket.boarded or 0))   -- var holds the colonists wanting to leave
     rocket.AT_boarded_colonists    = (rocket.boarded and #rocket.boarded) or 0       -- var holds the colonists that boarded
@@ -56,6 +57,7 @@ function ATsetupVariables(rocket, init)
     rocket.AT_GenDepartRan         = false    -- var holds status of GenerateDepartures
     rocket.AT_RecallRadiusMode     = "Mod Config Set" -- mode for recall radius
     rocket.AT_oldDecal             = false    -- var that holds the old decal entitiy
+    if rocket.AT_eject_thread and IsValidThread(rocket.AT_eject_thread) then DeleteThread(rocket.AT_eject_thread) end -- stop ejecting colonists if in process
   else
     if rocket.AT_enabled then g_AT_NumOfTouristRockets = g_AT_NumOfTouristRockets - 1 end
     if rocket.AT_depart_thread and IsValidThread(rocket.AT_depart_thread) then DeleteThread(rocket.AT_depart_thread) end -- kill the departure thread if its running
@@ -67,6 +69,7 @@ function ATsetupVariables(rocket, init)
     if rocket.AT_departures and (rocket.AT_departures < 1) then rocket.AT_departures = nil end -- if departures > 0 then keep departures if cycling on/off
     rocket.AT_arriving_tourists    = nil
     rocket.AT_departuretime        = nil
+    rocket.AT_express              = nil
     rocket.AT_have_departures      = nil
     rocket.AT_leaving_colonists    = nil      -- var holds the colonists wanting to leave
     rocket.AT_boarded_colonists    = nil      -- var holds the colonists that boarded
@@ -118,7 +121,8 @@ end -- ATfindReferences()
 function ATsetButtonStatus(ref, state)
   if type(ref) ~= "table" then return end -- short circuit if ref (self) is not built yet
 
-  local InfopanelDlg = ref.parent.parent.parent.parent.parent
+  -- local InfopanelDlg = ref.parent.parent.parent.parent.parent
+  local InfopanelDlg = Dialogs.Infopanel
 
   local tsections = {
     serviceArea    = ATfindReferences(InfopanelDlg.idContent, "section", 994862568830), -- idContent[2]
@@ -199,6 +203,7 @@ local function ATUpdateStatusText(ui_status)
     checkdepart    = T{StringIdBase + 159, "Checking for departures"},
     warnleaving    = T{StringIdBase + 160, "Warning rocket leaving soon"},
     disembark      = T{StringIdBase + 161, "Colonists disembarking"},
+    express        = T{StringIdBase + 162, "-<- Overstay Express ->-"},
   }
   return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
@@ -319,7 +324,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "220"
+  local ATControlVer = "220.1"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -370,7 +375,8 @@ function OnMsg.ClassesBuilt()
       "UniqueID", ATButtonID1,
       "Id", "idATbutton",
       "__context_of_kind", "SupplyRocket",
-      "__condition", function (parent, context) return g_AT_modEnabled and context.can_fly_colonists and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+      "__condition", function (parent, context) return g_AT_modEnabled and context.can_fly_colonists and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod",
+                                                                                                           "RefugeeRocket", "ForeignAidRocket", "RocketBuildingBase")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
       "__template", "InfopanelButton",
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"}, -- Title Used for sections only
