@@ -210,7 +210,7 @@ local function ATUpdateStatusText(ui_status)
     checkdepart    = T{StringIdBase + 159, "Checking for departures"},
     warnleaving    = T{StringIdBase + 160, "Warning rocket leaving soon"},
     disembark      = T{StringIdBase + 161, "Colonists disembarking"},
-    express        = T{StringIdBase + 162, "<green>-+- Overstay Express -+-</green>"},
+    express        = T{StringIdBase + 162, "<white>-+- Overstay Express -+-</white>"},
   }
   return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
@@ -331,7 +331,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "220.2"
+  local ATControlVer = "221"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -396,12 +396,10 @@ function OnMsg.ClassesBuilt()
         -- enable or disable AT button based on exports
         if rocket.allow_export then
           self:SetEnabled(false)
-          self:SetRolloverText(T{StringIdBase + 102, "<left_click> Activate<newline><right_click> Eject all colonists onboard*<newline>*Only non-automated non-export rockets"})
         else
           self:SetEnabled(true)
-          self:SetRolloverText(T{StringIdBase + 117, "<left_click> De-Activate"})
         end -- if auto exporting
-
+        
         -- begin flash sequence for status
         if (not rocket.AT_firstRun) and (not self.cxFlashStatus) and (rocket.AT_status == "boarding") and (rocket.AT_boarded_colonists >= rocket.AT_leaving_colonists) then
           ATflashStatus(rocket, "boardcomplete", "waitdepart", true)
@@ -412,10 +410,12 @@ function OnMsg.ClassesBuilt()
         if rocket.AT_enabled then
           ATsetButtonStatus(self, false) -- set original buttons to disabled
           self:SetIcon(iconATButtonOn)
+          self:SetRolloverHint(T{StringIdBase + 117, "<left_click> De-Activate"})
           self:SetRolloverText(T{StringIdBase + 104, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>ON</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()})
         else
           ATsetButtonStatus(self, true) -- set original buttons to enabled
           self:SetIcon(iconATButtonOff)
+          self:SetRolloverHint(T{StringIdBase + 102, "<left_click> Activate<newline><right_click> Eject all colonists onboard*<newline>*Only non-automated non-export rockets"})
           self:SetRolloverText(T{StringIdBase + 101, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()})
         end -- if not self.cxATstatus
 

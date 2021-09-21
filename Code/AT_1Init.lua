@@ -5,7 +5,7 @@
 -- Created May 1st, 2019
 -- Hotfix Jan 25th, 2020
 -- Tourism patch fixes March 15th 2021
--- Update Sept 20th, 2021
+-- Update Sept 21th, 2021
 
 local lf_printdistance = false -- setup debug for distance checking
                                -- Use Msg("ToggleLFPrint", "AT", "distance")
@@ -311,46 +311,29 @@ end -- function ATStopDepartureThreads(rocket)
 function ATejectColonists(rocket)
   -- do not run if thread already started
   if rocket.disembarking and (#rocket.disembarking > 0) then return end -- short circuit in case people are still getting off
-  if IsValid(rocket) and (rocket.command ~= "takeoff") and ((rocket.boarded and #rocket.boarded > 0)) and not IsValidThread(rocket.AT_eject_thread) then
+  if IsValid(rocket) and (not rocket:IsDeparting()) and rocket:IsRocketOnMars() and ((rocket.boarded and #rocket.boarded > 0)) and not IsValidThread(rocket.AT_eject_thread) then
     rocket:StopDepartureThread() -- got to kill this thread first otherwise they turn around and come back
-    print("CP1")
-    
     
     -- start the thread
     rocket.AT_eject_thread = CreateGameTimeThread(function(rocket)
-      
-      print("CP2")
-      --[[
-      -- wait for all the departures to enter rocket
-      local tick = 3000
-      while IsValid(rocket) and (rocket.command ~= "takeoff") and (rocket.departures and #rocket.departures > 0) and (tick > 0) do
-        Sleep(100) -- 1/10 of a second
-        tick = tick - 1
-      end -- while
-      ]]--
-      
-      if (not IsValid(rocket)) or (rocket.command == "takeoff") then return end -- cancel eject, taking off
-      
-      
-      print("CP3")
-      --local boarded = table.copy(rocket.boarded) or empty_table -- copy the table localy so colonists can continue to arrive and we can work
+
       local tEjectedColonists = {}
       -- setup new table and remove some of the unecessary fields to generate colonist table
       -- keep old colonist data where it makes sense
+      -- remove colonists from boarded var - counting backwards to avoid table corruption and allow for new additions simulatneously
       local idx = #rocket.boarded
       for i = idx, 1, -1 do
-        local colonist = table.remove(rocket.boarded, i)
+        local colonist = table.remove(rocket.boarded, i) or empty_table
         tEjectedColonists[i] = {}
-        print("Working on applicant #", i)
         for _, traitList in pairs(ATcolonistGenTraits) do
           for j = 1, #traitList do
             local data = traitList[j]
             if colonist[data] then tEjectedColonists[i][data] = colonist[data] end
           end -- for j
         end -- for _, trait
+        tEjectedColonists[i].boardedData = colonist -- save the boarded data in case we need to put these colonists back during ejection
         if tEjectedColonists[i].sols and tEjectedColonists[i].sols > 0 then tEjectedColonists[i].oldSols = tEjectedColonists[i].sols end -- need to replace this after generating new colonist
       end -- for i
-      print("Ejected: ", #tEjectedColonists)
 
       if not rocket.disembarking then rocket.disembarking = {} end
       rocket.disembarking_confused = false
@@ -359,14 +342,12 @@ function ATejectColonists(rocket)
       local num_colonists = 0
       local num_tourists = 0
 
-      ex(tEjectedColonists)
-      ToggleGamePausedState()
-
       idx = #tEjectedColonists
-      for i = idx, 1, -1 do
-        local applicant = table.remove(tEjectedColonists, i)
-        if applicant and IsValid(rocket) and (rocket.command ~= "takeoff") then
-          print("CP4 - Applicant ready")
+      -- only generate new colonists if not in the process of leaving
+      while (idx > 0) and IsValid(rocket) and (not rocket:IsDeparting()) do
+        local applicant = table.remove(tEjectedColonists, idx)
+        if applicant then
+          applicant.boardedData = nil -- too late, cant use it anymore so dump it
           if applicant.traits.Tourist then
             num_tourists = num_tourists + 1
           else
@@ -396,39 +377,36 @@ function ATejectColonists(rocket)
           rocket.disembarking[#rocket.disembarking + 1] = colonist
           Sleep(1000 + Random(0, 500))
         end -- if applicant
-      end -- for _
-
+        idx = idx - 1
+      end -- while
+      
+      -- in case we takeoff while ejecting colonists, put the left overs that didnt make it out back in boarded
+      if IsValid(rocket) and rocket:IsDeparting() and (#tEjectedColonists > 0) then
+        -- rocket.boarded = tEjectedColonists or empty_table
+        for _, c in pairs(tEjectedColonists or empty_table) do
+          rocket.boarded[#rocket.boarded+1] = c.boardedData
+        end -- for _, c
+        if rocket.AT_enabled then rocket.AT_departures = #tEjectedColonists or 0 end
+      end -- if IsValid
+      
       -- hold rocket until all have left rocket
-      local tick = 3000 -- cant wait forever so max time to exit is 300 seconds
-      while (tick > 0) and (#rocket.disembarking > 0) do
+      while (#rocket.disembarking > 0) do
         rocket:CheckDisembarkationTable()
         Sleep(100) -- 1/10 of a second
-        --tick = tick - 1
       end -- while
            
-      if IsValid(rocket) and (rocket.command ~= "takeoff") then
-        
-        
-        print("CP5")
-        if num_colonists > 0 then
-          AddOnScreenNotification("NewColonists", nil, {count = num_colonists}, {rocket}, rocket:GetMapID())
-        end -- if num_colonists
-        if num_tourists > 0 then
-          AddOnScreenNotification("NewTourists", nil, {count = num_tourists}, {rocket}, rocket:GetMapID())
-        end -- if num_tourists
-        if rocket.disembarking_confused then
-          AddOnScreenNotification("ConfusedColonists", nil, {}, {rocket:GetPos()}, rocket:GetMapID())
-        end -- if self.disembarking_confuse
-        
-        Msg("ColonistsLanded", rocket:GetMapID())
+      if num_colonists > 0 then
+        AddOnScreenNotification("NewColonists", nil, {count = num_colonists}, {rocket}, rocket:GetMapID())
+      end -- if num_colonists
+      if num_tourists > 0 then
+        AddOnScreenNotification("NewTourists", nil, {count = num_tourists}, {rocket}, rocket:GetMapID())
+      end -- if num_tourists
+      if rocket.disembarking_confused then
+        AddOnScreenNotification("ConfusedColonists", nil, {}, {rocket:GetPos()}, rocket:GetMapID())
+      end -- if self.disembarking_confuse
       
-      end -- if IsValid
-
-      print("CP6")
-
-      --rocket.disembarking = nil
-      --rocket.boarded = nil
-      rocket.AT_departures = nil -- just in case
+      Msg("ColonistsLanded", rocket:GetMapID())
+      
 
     end, rocket) -- AT_eject_thread
 

@@ -1,11 +1,19 @@
 # Automated Tourism
 ## [v2.2.1] 09/21/21 12:29:14 AM
 #### Changed
+- function ATejectColonists(rocket) - rewrote this with better logic
+- rollover hints to include right click
+- changed condition check to exclude new rockets
 
 #### Added
 - ejection routine to automated tourism button for supply rockets
+- function ATejectColonists(rocket) to panels AT button
+- added express status to status flasher
+- upped the AT control version in panels
+- OnAltPress to xtemplate button
 
 #### Removed
+- playfx on left button press in panels
 
 #### Fixed Issues
 
@@ -14,8 +22,6 @@
 #### Deprecated
 
 #### Todo
-- cleanup
-- documentation
 
 --------------------------------------------------------
 ## [v2.2.0] 09/20/21 11:41:04 PM
