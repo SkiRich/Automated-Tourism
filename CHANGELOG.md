@@ -1,4 +1,23 @@
 # Automated Tourism
+## [v2.2.1] 09/21/21 12:29:14 AM
+#### Changed
+
+#### Added
+- ejection routine to automated tourism button for supply rockets
+
+#### Removed
+
+#### Fixed Issues
+
+#### Open Issues
+
+#### Deprecated
+
+#### Todo
+- cleanup
+- documentation
+
+--------------------------------------------------------
 ## [v2.2.0] 09/20/21 11:41:04 PM
 #### Changed
 - Picard version bump

@@ -12,7 +12,7 @@ local lf_print = false -- Setup debug printing in local file
 
 local ModDir   = CurrentModPath
 local mod_name = "Automated Tourism"
-local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 117
+local StringIdBase = 17764702300 -- Automated Tourism    : 702300 - 702499 File Starts at 100-199:  Next is 118
 local iconATButtonNA    = ModDir.."UI/Icons/ATButtonNA.png"
 local iconATButtonOn    = ModDir.."UI/Icons/ATButtonOn.png"
 local iconATButtonOff   = ModDir.."UI/Icons/ATButtonOff.png"
@@ -210,7 +210,7 @@ local function ATUpdateStatusText(ui_status)
     checkdepart    = T{StringIdBase + 159, "Checking for departures"},
     warnleaving    = T{StringIdBase + 160, "Warning rocket leaving soon"},
     disembark      = T{StringIdBase + 161, "Colonists disembarking"},
-    express        = T{StringIdBase + 162, "-<- Overstay Express ->-"},
+    express        = T{StringIdBase + 162, "<green>-+- Overstay Express -+-</green>"},
   }
   return ui_status_list[ui_status]
 end -- ATUpdateStatusText(rocket)
@@ -331,7 +331,7 @@ function OnMsg.ClassesBuilt()
   local PlaceObj = PlaceObj
   local ATButtonID1 = "ATButton-01"
   local ATSectionID1 = "ATSection-01"
-  local ATControlVer = "220.1"
+  local ATControlVer = "220.2"
   local XT
 
   if lf_print then print("Loading Classes in AT_2Panels.lua") end
@@ -388,16 +388,18 @@ function OnMsg.ClassesBuilt()
       "Icon", iconATButtonOff,
       "RolloverTitle", T{StringIdBase + 100, "Automated Tourism"}, -- Title Used for sections only
       "RolloverText", T{StringIdBase + 101, "Click to turn on Automated Tourism.<newline>Tourists waiting on earth: <em><tcount></em><newline>Tourists residing on Mars: <em><tmcount></em><newline><newline>Tourism Rocket Status: <em>OFF</em>", tcount = ATcountTouristsOnEarth(), tmcount = ATcountTouristsOnMars()},
-      "RolloverHint", T{StringIdBase + 102, "<left_click> Activate"},
-      "RolloverDisabledText", T{StringIdBase + 103, "Automated Tourism disabled while rocket is set for Automatic Mode or  Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
+      "RolloverHint", T{StringIdBase + 102, "<left_click> Activate<newline><right_click> Eject all colonists onboard*<newline>*Only non-automated non-export rockets"},
+      "RolloverDisabledText", T{StringIdBase + 103, "Automated Tourism disabled while rocket is set for Automatic Mode or Rare Metals Exports is allowed.<newline>Turn off Automated Mode and Rare Metal Exports."},
       "OnContextUpdate", function(self, context)
         local rocket = context
 
         -- enable or disable AT button based on exports
         if rocket.allow_export then
           self:SetEnabled(false)
+          self:SetRolloverText(T{StringIdBase + 102, "<left_click> Activate<newline><right_click> Eject all colonists onboard*<newline>*Only non-automated non-export rockets"})
         else
           self:SetEnabled(true)
+          self:SetRolloverText(T{StringIdBase + 117, "<left_click> De-Activate"})
         end -- if auto exporting
 
         -- begin flash sequence for status
@@ -445,8 +447,16 @@ function OnMsg.ClassesBuilt()
         end -- if not rocket.AT_enabled
 
          ObjModified(self)
-      end -- OnPress
-    }) -- End PlaceObject
+      end, -- OnPress 
+			'AltPress', true, 
+			'OnAltPress', function (self, gamepad) 
+         local rocket = self.context
+         if not rocket.AT_enabled then
+           PlayFX("DomeAcceptColonistsChanged", "start", rocket) 
+           ATejectColonists(rocket)
+          end -- if not rocket
+      end -- OnAltpress 
+    }) -- end PlaceObject xtemplate 
 
     --Check for Cheats Menu and insert before Cheats menu
     --foundsection, idx = table.find_value(XT, "__template", "sectionCheats")
@@ -461,7 +471,8 @@ function OnMsg.ClassesBuilt()
         "Version", ATControlVer,
         "Id", "idATSection",
         "__context_of_kind", "SupplyRocket",
-        "__condition", function (parent, context) return g_AT_modEnabled and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
+        "__condition", function (parent, context) return g_AT_modEnabled and (not IsKindOfClasses(context, "RocketExpedition", "ForeignTradeRocket", "TradeRocket", "SupplyPod", "ArkPod", "DropPod",
+                                                                                                            "RefugeeRocket", "ForeignAidRocket", "RocketBuildingBase")) and (not context.demolishing) and (not context.destroyed) and (not context.bulldozed) end,
         "__template", "InfopanelSection",
         "Icon", iconATSection,
         "Title", T{StringIdBase + 105, "Tourist Rocket Status"},
@@ -503,7 +514,7 @@ function OnMsg.ClassesBuilt()
                     local rocket = self.context
                     if button == "L" then
                       if lf_print then print("Left Button") end
-                      PlayFX("DomeAcceptColonistsChanged", "start", rocket)
+                      --PlayFX("DomeAcceptColonistsChanged", "start", rocket)
                     end -- buton L
                     if button == "R" then
                       if lf_print then print("Right Button") end
